@@ -1,0 +1,176 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── Surfaces — editorial-clinical, deep navy with paper-warm accents ── */
+  --color-canvas: #07101e;
+  --color-canvas-deep: #050a14;
+  --color-panel: #0e1a2c;
+  --color-panel-2: #122236;
+  --color-panel-raised: #16273e;
+  --color-line: #1e3251;
+  --color-line-soft: #15263d;
+  --color-line-strong: #2b4669;
+
+  /* ── Ink ── */
+  --color-ink: #f3ede1;
+  --color-ink-soft: #d8d2c5;
+  --color-ink-mute: #94a4bd;
+  --color-ink-faint: #5d6f8c;
+
+  /* ── Accents ── */
+  --color-champagne: #e7c08a;
+  --color-champagne-soft: #f0d6ad;
+  --color-champagne-deep: #b88d52;
+  --color-emerald: #34d399;
+  --color-emerald-soft: #6ee7b7;
+  --color-emerald-deep: #047857;
+  --color-coral: #fb7185;
+  --color-coral-deep: #be123c;
+  --color-amber: #fbbf24;
+  --color-azure: #60a5fa;
+  --color-violet: #a78bfa;
+
+  /* ── Status (semantic aliases) ── */
+  --color-good: var(--color-emerald);
+  --color-warn: var(--color-amber);
+  --color-bad: var(--color-coral);
+
+  /* ── Typography (standard SaaS) ── */
+  --font-display: "Inter", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* ── Radius ── */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-2xl: 28px;
+
+  /* ── Shadows ── */
+  --shadow-quiet: 0 1px 0 rgba(255, 255, 255, 0.02), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-lift: 0 1px 0 rgba(255, 255, 255, 0.04), 0 18px 40px -16px rgba(0, 0, 0, 0.55);
+  --shadow-glow-emerald: 0 0 0 1px rgba(52, 211, 153, 0.35), 0 12px 30px -8px rgba(52, 211, 153, 0.35);
+  --shadow-glow-champagne: 0 0 0 1px rgba(231, 192, 138, 0.4), 0 12px 30px -8px rgba(231, 192, 138, 0.3);
+}
+
+@layer base {
+  *, *::before, *::after {
+    border-color: var(--color-line);
+  }
+  html, body, #root {
+    height: 100%;
+  }
+  body {
+    font-family: var(--font-sans);
+    color: var(--color-ink);
+    background:
+      radial-gradient(1200px 600px at 18% -10%, rgba(96, 165, 250, 0.06), transparent 60%),
+      radial-gradient(900px 500px at 100% 100%, rgba(231, 192, 138, 0.05), transparent 55%),
+      var(--color-canvas);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "cv11", "ss01";
+  }
+  ::selection { background: rgba(231, 192, 138, 0.35); color: var(--color-ink); }
+}
+
+/* ── Utility helpers ── */
+@utility font-display { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; }
+@utility font-mono-tight { font-family: var(--font-mono); font-feature-settings: "zero"; letter-spacing: -0.01em; }
+@utility text-ink { color: var(--color-ink); }
+@utility text-ink-soft { color: var(--color-ink-soft); }
+@utility text-ink-mute { color: var(--color-ink-mute); }
+@utility text-ink-faint { color: var(--color-ink-faint); }
+@utility text-champagne { color: var(--color-champagne); }
+@utility text-emerald { color: var(--color-emerald); }
+@utility text-coral { color: var(--color-coral); }
+@utility text-amber { color: var(--color-amber); }
+@utility text-azure { color: var(--color-azure); }
+@utility text-violet { color: var(--color-violet); }
+@utility bg-canvas { background-color: var(--color-canvas); }
+@utility bg-canvas-deep { background-color: var(--color-canvas-deep); }
+@utility bg-panel { background-color: var(--color-panel); }
+@utility bg-panel-2 { background-color: var(--color-panel-2); }
+@utility bg-panel-raised { background-color: var(--color-panel-raised); }
+@utility border-line { border-color: var(--color-line); }
+@utility border-line-soft { border-color: var(--color-line-soft); }
+@utility border-line-strong { border-color: var(--color-line-strong); }
+@utility shadow-lift { box-shadow: var(--shadow-lift); }
+@utility shadow-quiet { box-shadow: var(--shadow-quiet); }
+@utility shadow-glow-emerald { box-shadow: var(--shadow-glow-emerald); }
+@utility shadow-glow-champagne { box-shadow: var(--shadow-glow-champagne); }
+
+@utility grain {
+  position: relative;
+}
+@utility grain-overlay {
+  position: absolute; inset: 0; pointer-events: none; opacity: 0.04;
+  background-image:
+    repeating-radial-gradient(circle at 2% 4%, #fff 0 1px, transparent 1px 3px),
+    repeating-radial-gradient(circle at 92% 80%, #fff 0 1px, transparent 1px 4px);
+  mix-blend-mode: overlay;
+}
+
+/* ── Hairline rules ── */
+@utility hairline-x {
+  background-image: linear-gradient(to right, transparent 0%, rgba(231,192,138,0.18) 12%, rgba(231,192,138,0.55) 50%, rgba(231,192,138,0.18) 88%, transparent 100%);
+  height: 1px;
+}
+
+/* ── Typography presets ── */
+@utility eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-ink-faint);
+  font-weight: 500;
+  line-height: 1.2;
+}
+@utility eyebrow-tight {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--color-ink-faint);
+  font-weight: 500;
+  line-height: 1.2;
+}
+@utility numeric {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.025em;
+}
+
+/* ── Animations ── */
+@keyframes pulse-ring {
+  0%   { transform: scale(0.95); opacity: 0.7; }
+  70%  { transform: scale(1.4);  opacity: 0;   }
+  100% { transform: scale(1.4);  opacity: 0;   }
+}
+@utility pulse-ring { animation: pulse-ring 2.4s ease-out infinite; }
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@utility shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(231,192,138,0.18) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2.6s linear infinite;
+}
+
+@keyframes blink-cursor {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+@utility blink-cursor { animation: blink-cursor 1.05s step-end infinite; }
+
+/* ── Custom scrollbar ── */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: rgba(43, 70, 105, 0.5); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(43, 70, 105, 0.9); border: 2px solid transparent; background-clip: padding-box; }
