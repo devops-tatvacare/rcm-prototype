@@ -195,7 +195,7 @@ export const usePacketBuilder = create<State>((set, get) => {
                   c.payor_id, py.name AS payor_name,
                   h.name AS hospital_name, p.ward_class, p.policy_number,
                   c.acceptance_score, c.predicted_dtp_days, c.stage, c.days_in_stage,
-                  c.agent_step, c.risk_flag, c.submitted_at
+                  c.agent_step, c.risk_flag, c.submitted_at, c.source
              FROM claims c
              JOIN patients p ON p.id = c.patient_id
              JOIN payors py ON py.id = c.payor_id

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { motion } from "motion/react";
-import { LayoutDashboard, Sparkles, Building2, RefreshCw, ScanLine, FileWarning, Wallet, Activity, ChevronLeft, ChevronRight } from "lucide-react";
+import { LayoutDashboard, Building2, RefreshCw, ListChecks, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { resetDb } from "@/lib/db";
 
@@ -12,27 +12,18 @@ const GROUPS: NavGroup[] = [
   {
     eyebrow: "Overview",
     items: [
-      { to: "/", label: "Cockpit", Icon: LayoutDashboard },
+      { to: "/", label: "Command Center", Icon: LayoutDashboard },
     ],
   },
   {
-    eyebrow: "Patient Access",
+    eyebrow: "My day",
     items: [
-      { to: "/eligibility", label: "Eligibility", Icon: ScanLine },
-      { to: "/clearances", label: "Financial Clearance", Icon: Wallet },
+      { to: "/worklist", label: "Worklist", Icon: ListChecks },
     ],
   },
   {
-    eyebrow: "Utilization & Coding",
+    eyebrow: "Reference",
     items: [
-      { to: "/case-review", label: "Case Review", Icon: Activity },
-      { to: "/builder", label: "Packet Builder", Icon: Sparkles },
-    ],
-  },
-  {
-    eyebrow: "Billing & Recovery",
-    items: [
-      { to: "/denials", label: "Denials", Icon: FileWarning },
       { to: "/payors", label: "Payor Intelligence", Icon: Building2 },
     ],
   },
@@ -74,7 +65,7 @@ export function Sidebar() {
         {!collapsed && (
           <div className="flex flex-col leading-tight overflow-hidden">
             <span className="truncate font-display text-[16px] tracking-tight text-ink">TatvaCare</span>
-            <span className="truncate font-mono-tight text-[10px] uppercase tracking-[0.16em] text-ink-faint">Revenue Automation</span>
+            <span className="truncate font-mono-tight text-[10px] uppercase tracking-[0.16em] text-ink-faint">Claims Engine</span>
           </div>
         )}
       </div>
@@ -144,20 +135,15 @@ export function Sidebar() {
             await resetDb();
             window.location.reload();
           }}
-          title={collapsed ? "Reset demo data" : undefined}
+          title={collapsed ? "Reset" : undefined}
           className={cn(
             "group flex w-full items-center rounded-md text-[11.5px] text-ink-faint hover:text-ink-mute",
             collapsed ? "h-9 justify-center" : "gap-2 px-2 py-1.5",
           )}
         >
           <RefreshCw size={collapsed ? 13 : 12} className="shrink-0 transition-transform group-hover:-rotate-180 duration-500" />
-          {!collapsed && <span>Reset demo data</span>}
+          {!collapsed && <span>Reset</span>}
         </button>
-        {!collapsed && (
-          <div className="mt-2 px-2 font-mono-tight text-[10px] text-ink-faint/70">
-            v0.1 · prototype build
-          </div>
-        )}
       </div>
     </motion.aside>
   );

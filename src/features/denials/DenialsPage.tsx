@@ -9,7 +9,7 @@ export function DenialsPage() {
   const { drawerOpen, closeDrawer } = useDenials();
   return (
     <>
-      <TopBar breadcrumb="Workspace · Back cycle" title="Denials — recover what fell through" />
+      <TopBar title="Denials" />
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
         <DenialsKpis />

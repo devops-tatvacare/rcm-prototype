@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
-import { Mail, ArrowRight, Sparkles, ChevronRight } from "lucide-react";
+import { motion } from "motion/react";
+import { Sparkles, ChevronRight } from "lucide-react";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
 import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
@@ -49,15 +49,16 @@ export function ThreadIngestion() {
 
   async function startIngest() {
     setIngesting(true);
+    setPulse(0);
     let n = 0;
     const id = setInterval(() => {
       n += 1;
-      setPulse((p) => p + 1);
+      setPulse(n);
       if (n >= 6) {
         clearInterval(id);
-        setIngesting(false);
+        setTimeout(() => setIngesting(false), 600);
       }
-    }, 700);
+    }, 600);
   }
 
   return (
@@ -79,29 +80,24 @@ export function ThreadIngestion() {
       />
       <div className="hairline-x mx-5" />
 
-      {/* Live sweep ribbon */}
-      <div className="relative h-9 border-b border-line-soft bg-[var(--color-canvas-deep)]/50 overflow-hidden">
-        <AnimatePresence>
-          {ingesting && (
-            <motion.div
-              key={pulse}
-              initial={{ x: -200 }}
-              animate={{ x: "120vw" }}
-              transition={{ duration: 1.4, ease: "linear" }}
-              className="absolute top-1/2 -translate-y-1/2 flex items-center gap-2 rounded-full border border-[var(--color-champagne)]/40 bg-[var(--color-champagne)]/10 px-3 py-1 font-mono-tight text-[11px] text-[var(--color-champagne)]"
-            >
-              <Mail size={11} />
-              klaim.bpjs@bpjs-kesehatan.go.id
-              <ArrowRight size={11} className="opacity-60" />
-              extracting rule…
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <div className="absolute inset-0 flex items-center justify-between px-5 font-mono-tight text-[10.5px] text-ink-faint">
-          <span>Inbox connector · Cendana TPA desk</span>
+      {/* Status strip — quiet by default, becomes a progress bar while ingesting. */}
+      <div className="relative border-b border-line-soft bg-[var(--color-canvas-deep)]/50">
+        <div className="flex items-center justify-between gap-4 px-5 py-2 font-mono-tight text-[10.5px] text-ink-faint">
+          <span>Inbox connector · TPA desk</span>
           <span>
-            {threads.length} threads loaded · 6 rules learned · last sync 4 min ago
+            {ingesting
+              ? <span className="text-[var(--color-champagne)]">Parsing thread {pulse} of 6 · extracting rule</span>
+              : <>{threads.length} threads loaded · 6 rules learned · last sync 4 min ago</>}
           </span>
+        </div>
+        {/* Thin progress bar that fills while ingesting; transparent when idle. */}
+        <div className="h-[2px] w-full overflow-hidden bg-transparent">
+          <motion.div
+            initial={false}
+            animate={{ width: ingesting ? `${(pulse / 6) * 100}%` : "0%", opacity: ingesting ? 1 : 0 }}
+            transition={{ type: "spring", stiffness: 90, damping: 20 }}
+            className="h-full rounded-r-full bg-[var(--color-champagne)]"
+          />
         </div>
       </div>
 

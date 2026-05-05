@@ -1,13 +1,14 @@
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Play, Pause, RotateCcw, Send, Stethoscope, Building2,
   Radar, Lock, AlertTriangle, Clock, Mail,
   Zap, BellRing, ChevronRight, Upload,
 } from "lucide-react";
+import { query } from "@/lib/db";
 import { Panel } from "@/components/ui/Panel";
 import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
-import { Gauge } from "@/components/ui/Gauge";
 import { ToggleChip } from "@/components/ui/ToggleChip";
 import { fmtCompactIDR } from "@/lib/format";
 import { usePacketBuilder } from "@/store/usePacketBuilder";
@@ -15,6 +16,8 @@ import { AgentStream } from "./AgentStream";
 import { FleetStatus } from "./FleetStatus";
 import { PayloadOverlay } from "./PayloadOverlay";
 import { lastPolledSummary, generatePollEvents, buildRemediationPlan, type ClaimLike } from "@/lib/stagedTraces";
+import { AssistActions } from "@/features/worklist/AssistActions";
+import { UploadedDocsPanel } from "@/features/worklist/UploadedDocsPanel";
 
 export function ClaimDetail() {
   const loadedClaim = usePacketBuilder((s) => s.loadedClaim);
@@ -23,21 +26,53 @@ export function ClaimDetail() {
   const closePayloadOverlay = usePacketBuilder((s) => s.closePayloadOverlay);
   const channel = usePacketBuilder((s) => s.channel);
   const artifacts = usePacketBuilder((s) => s.artifacts);
+  const startAgent = usePacketBuilder((s) => s.start);
+  const [agentInvoked, setAgentInvoked] = useState(false);
+
+  // For DOC_UPLOAD claims, hide the build/gauge panels until the associate
+  // either clicks "Run agent" or hands off uploaded docs to the packet agent.
+  // Polling because handoff happens inside the docs panel and we want to react to it.
+  useEffect(() => {
+    if (!loadedClaim || loadedClaim.source !== "DOC_UPLOAD") { setAgentInvoked(true); return; }
+    setAgentInvoked(false);
+    let cancelled = false;
+    const tick = () => {
+      query<{ n: number }>(
+        `SELECT COUNT(*) AS n FROM uploaded_docs
+          WHERE owner_kind = 'claim' AND owner_id = ? AND status = 'handed_to_packet'`,
+        [loadedClaim.id],
+      ).then((rows) => { if (!cancelled && (rows[0]?.n ?? 0) > 0) setAgentInvoked(true); });
+    };
+    tick();
+    const i = setInterval(tick, 700);
+    return () => { cancelled = true; clearInterval(i); };
+  }, [loadedClaim?.id, loadedClaim?.source]);
 
   if (!loadedClaim) return <FleetStatus />;
+
+  const showBuildPanels = loadedClaim.source !== "DOC_UPLOAD" || agentInvoked;
 
   return (
     <>
       <div className="grid h-full min-h-0 grid-cols-12 gap-3 p-4 pt-12">
-        <div className="col-span-5 flex min-h-0 flex-col gap-3 overflow-y-auto pr-1">
+        <div className="col-span-6 flex min-h-0 flex-col gap-3 overflow-y-auto pr-1 [&>*]:shrink-0">
           <ClaimHeader d={loadedClaim} />
-          {viewMode === "build" && <BuildPanel />}
-          {viewMode === "ready" && <ReadyPanel />}
-          {viewMode === "preauth" && <PreAuthPanel />}
-          {viewMode === "adjudicating" && <AdjudicatingPanel />}
-          {viewMode === "atrisk" && <AtRiskPanel />}
+          <AssistActions patientName={loadedClaim.patient_name} compact />
+          {loadedClaim.source === "DOC_UPLOAD" && (
+            <UploadedDocsPanel
+              ownerKind="claim"
+              ownerId={loadedClaim.id}
+              patientName={loadedClaim.patient_name}
+              onRunAgent={() => { setAgentInvoked(true); startAgent(); }}
+            />
+          )}
+          {showBuildPanels && viewMode === "build" && <BuildPanel />}
+          {showBuildPanels && viewMode === "ready" && <ReadyPanel />}
+          {showBuildPanels && viewMode === "preauth" && <PreAuthPanel />}
+          {showBuildPanels && viewMode === "adjudicating" && <AdjudicatingPanel />}
+          {showBuildPanels && viewMode === "atrisk" && <AtRiskPanel />}
         </div>
-        <div className="col-span-7 flex min-h-0 flex-col">
+        <div className="col-span-6 flex min-h-0 flex-col">
           <AgentStream />
         </div>
       </div>
@@ -175,29 +210,20 @@ function LiveAcceptanceCard() {
 
   return (
     <Panel className="overflow-hidden">
-      <div className="flex items-center justify-between px-5 pt-4 pb-3">
-        <div className="flex flex-col leading-tight">
-          <span className="eyebrow">Acceptance probability</span>
-          <span className="mt-0.5 font-mono-tight text-[10.5px] text-ink-faint">spec target ≥ 85% · auto-held below</span>
-        </div>
-        <Pill tone={statusTone} dot size="sm">{statusLabel}</Pill>
+      <div className="flex items-center justify-between px-4 py-2.5">
+        <span className="eyebrow">Acceptance probability</span>
+        <Pill tone={statusTone} dot size="xs">{statusLabel}</Pill>
       </div>
-      <div className="hairline-x mx-5" />
-      <div className="flex justify-center px-4 pt-4 pb-2">
-        <Gauge value={acceptance} />
-      </div>
-      <div className="grid grid-cols-3 gap-px bg-[var(--color-line-soft)] px-px">
-        <ScoreCell label="Baseline" value={`${baseline}%`} mono />
-        <ScoreCell
-          label="Earned"
-          value={`${earned >= 0 ? "+" : ""}${earned.toFixed(1)} pts`}
-          mono
-          accent={earned >= 0 ? "emerald" : "coral"}
-        />
-        <ScoreCell label="Predicted DTP" value={`${predictedDtpDays}d`} mono accent="champagne" />
-      </div>
+      <div className="hairline-x mx-4" />
+      <InlineAcceptanceBar value={acceptance} target={85} />
+      <InlineStatsRow
+        baseline={`${baseline}%`}
+        earned={`${earned >= 0 ? "+" : ""}${earned.toFixed(1)} pts`}
+        earnedAccent={earned >= 0 ? "emerald" : "coral"}
+        dtp={`${predictedDtpDays}d`}
+      />
 
-      <div className="border-t border-line-soft px-5 py-3.5">
+      <div className="border-t border-line-soft px-4 py-2.5">
         <AnimatePresence mode="wait">
           {!ready && !dispatching && (
             <motion.div key="run" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex gap-2">
@@ -269,16 +295,14 @@ function ReadyPanel() {
         </div>
         <Pill tone="good" dot size="sm">Ready to submit</Pill>
       </div>
-      <div className="hairline-x mx-5" />
-      <div className="flex justify-center px-4 pt-4 pb-2">
-        <Gauge value={acceptance} />
-      </div>
+      <div className="hairline-x mx-4" />
+      <InlineAcceptanceBar value={acceptance} target={85} />
       <div className="grid grid-cols-3 gap-px bg-[var(--color-line-soft)] px-px">
         <ScoreCell label="Baseline" value={`${baseline}%`} mono />
         <ScoreCell label="Earned" value={`${earned >= 0 ? "+" : ""}${earned.toFixed(1)} pts`} mono accent="emerald" />
         <ScoreCell label="Predicted DTP" value={`${predictedDtpDays}d`} mono accent="champagne" />
       </div>
-      <div className="border-t border-line-soft px-5 py-3.5">
+      <div className="border-t border-line-soft px-4 py-3">
         {dispatching ? <DispatchingBadge /> : (
           <Button size="md" variant="primary" className="w-full" onClick={submit}>
             <Send size={13} /> Submit packet to payor
@@ -286,6 +310,60 @@ function ReadyPanel() {
         )}
       </div>
     </Panel>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Inline acceptance bar — replaces circular gauge with a horizontal track.
+// Big % on the left, target marker, fills left→right. Compact, not chunky.
+// ─────────────────────────────────────────────────────────────────────────
+function InlineStatsRow({
+  baseline, earned, earnedAccent, dtp,
+}: { baseline: string; earned: string; earnedAccent: "emerald" | "coral"; dtp: string }) {
+  const earnedColor = earnedAccent === "emerald" ? "var(--color-emerald)" : "var(--color-coral)";
+  return (
+    <div className="grid grid-cols-3 gap-px bg-[var(--color-line-soft)] px-px">
+      <Cell label="Baseline" value={baseline} />
+      <Cell label="Earned" value={earned} color={earnedColor} />
+      <Cell label="Pred DTP" value={dtp} color="var(--color-champagne)" />
+    </div>
+  );
+}
+
+function Cell({ label, value, color }: { label: string; value: string; color?: string }) {
+  return (
+    <div className="bg-[var(--color-panel)] px-3 py-1.5">
+      <div className="font-mono-tight text-[9.5px] uppercase tracking-[0.12em] text-ink-faint truncate">{label}</div>
+      <div className="numeric mt-0.5 truncate text-[12px] font-mono-tight" style={{ color: color ?? "var(--color-ink)" }}>{value}</div>
+    </div>
+  );
+}
+
+function InlineAcceptanceBar({ value, target }: { value: number; target: number }) {
+  const pct = Math.max(0, Math.min(100, Math.round(value)));
+  const color = pct >= target ? "var(--color-emerald)" : pct >= 70 ? "var(--color-champagne)" : "var(--color-coral)";
+  return (
+    <div className="px-4 py-2.5">
+      <div className="flex items-baseline gap-2">
+        <span className="numeric font-display text-[22px] leading-none" style={{ color }}>{pct}</span>
+        <span className="text-[12px] text-ink-mute">%</span>
+        <span className="ml-auto font-mono-tight text-[10px] text-ink-faint">target {target}%</span>
+      </div>
+      <div className="relative mt-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--color-canvas-deep)]">
+        <motion.div
+          initial={false}
+          animate={{ width: `${pct}%` }}
+          transition={{ type: "spring", stiffness: 70, damping: 18 }}
+          className="h-full rounded-full"
+          style={{ background: `linear-gradient(90deg, var(--color-coral), var(--color-champagne) 60%, ${color})` }}
+        />
+        <div
+          className="absolute top-0 h-full w-px bg-[var(--color-ink)]/40"
+          style={{ left: `${target}%` }}
+          title={`Target ${target}%`}
+        />
+      </div>
+    </div>
   );
 }
 

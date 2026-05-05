@@ -30,6 +30,7 @@ export type ClaimLike = {
   agent_step: string | null;
   risk_flag: string | null;
   submitted_at: string | null;
+  source?: string | null;
 };
 
 const shortDx = (dx: string) => dx.split(" · ")[0].split(" — ")[0];
@@ -46,35 +47,72 @@ function hashId(s: string): number {
 // ─────────────────────────────────────────────────────────────────────────
 function buildGenericBuildPlan(c: ClaimLike): AgentStep[] {
   const payorAbbrev = c.payor_id === "bpjs" ? "BPJS" : c.payor_id === "aia" ? "AIA" : "Allianz";
+  const isDocUpload = c.source === "DOC_UPLOAD";
+
+  // Source labels swap based on data origin so the trace matches what the
+  // associate actually saw on screen. EMR-driven cases pull from EMR/LIS/RIS;
+  // doc-upload cases pull from the Clinical extractor agent's coded output.
+  const docSrc = isDocUpload ? "Extractor agent" : "EMR";
+  const evidenceSrc = isDocUpload ? "Extractor agent · paper labs + imaging" : "EMR + LIS + RIS";
+
   return [
     {
       id: `${c.id}_s0`,
       kind: "init",
-      narration: `Initializing agent · ${c.patient_name} · ${c.drg} · ${c.payor_name}. Pulling baseline acceptance from historical threads on this DRG.`,
+      narration: `Initializing Packet agent · ${c.patient_name} · ${c.drg} · ${c.payor_name}. ${
+        isDocUpload
+          ? "Reading the bundle handed off by the Clinical extractor agent (uploaded paper docs)."
+          : "Pulling baseline acceptance from historical threads on this DRG."
+      }`,
       probDelta: 0,
       ms: 600,
     },
     {
       id: `${c.id}_s1`,
       kind: "fetch",
-      narration: "Pulling discharge summary from EMR — locking after attending physician sign-off.",
-      artifact: { id: `${c.id}_a1`, label: "Discharge Summary", source: "EMR", kind: "clinical", bytes: "112 KB", required: true },
+      narration: isDocUpload
+        ? "Loading clinical narrative from extracted paper records — handwritten ED note + GP referral OCR'd by the extractor."
+        : "Pulling discharge summary from EMR — locking after attending physician sign-off.",
+      artifact: {
+        id: `${c.id}_a1`,
+        label: isDocUpload ? "Extracted Clinical Narrative" : "Discharge Summary",
+        source: docSrc,
+        kind: "clinical",
+        bytes: "112 KB",
+        required: true,
+      },
       probDelta: 3,
       ms: 700,
     },
     {
       id: `${c.id}_s2`,
       kind: "code",
-      narration: `Coding · ${shortDx(c.dx)}. ${c.payor_id === "bpjs" ? "INA-CBG" : "DRG"} group locked.`,
-      artifact: { id: `${c.id}_a2`, label: "ICD-10 + Procedure Codes", source: "Coder-AI", kind: "clinical", bytes: "4 KB" },
+      narration: isDocUpload
+        ? `Reusing ICD-10 + CPT codes already extracted from paper docs · ${shortDx(c.dx)}. ${c.payor_id === "bpjs" ? "INA-CBG" : "DRG"} group locked.`
+        : `Coding · ${shortDx(c.dx)}. ${c.payor_id === "bpjs" ? "INA-CBG" : "DRG"} group locked.`,
+      artifact: {
+        id: `${c.id}_a2`,
+        label: "ICD-10 + Procedure Codes",
+        source: isDocUpload ? "Extractor agent · already coded" : "Coder-AI",
+        kind: "clinical",
+        bytes: "4 KB",
+      },
       probDelta: 3,
       ms: 700,
     },
     {
       id: `${c.id}_s3`,
       kind: "fetch",
-      narration: "Pulling clinical evidence · pre-op labs, imaging, operative records.",
-      artifact: { id: `${c.id}_a3`, label: "Clinical Evidence Bundle", source: "EMR + LIS + RIS", kind: "evidence", bytes: "1.6 MB" },
+      narration: isDocUpload
+        ? "Reading uploaded paper evidence · scanned chest X-ray, paper CBC, blood culture printout."
+        : "Pulling clinical evidence · pre-op labs, imaging, operative records.",
+      artifact: {
+        id: `${c.id}_a3`,
+        label: isDocUpload ? "Uploaded Paper Evidence Bundle" : "Clinical Evidence Bundle",
+        source: evidenceSrc,
+        kind: "evidence",
+        bytes: "1.6 MB",
+      },
       probDelta: 4,
       ms: 800,
     },
@@ -89,7 +127,9 @@ function buildGenericBuildPlan(c: ClaimLike): AgentStep[] {
     {
       id: `${c.id}_s5`,
       kind: "validate",
-      narration: "Pre-auth cross-reference verified · scope and procedure match.",
+      narration: isDocUpload
+        ? "Cross-referencing extracted codes against payor pre-auth scope · checking nothing slipped during OCR."
+        : "Pre-auth cross-reference verified · scope and procedure match.",
       artifact: { id: `${c.id}_a5`, label: "Pre-Auth Letter", source: "Pre-auth desk", kind: "admin", bytes: "16 KB" },
       probDelta: 4,
       ms: 700,
@@ -97,14 +137,18 @@ function buildGenericBuildPlan(c: ClaimLike): AgentStep[] {
     {
       id: `${c.id}_s6`,
       kind: "compose",
-      narration: `Composing claim packet · 12 artifacts · ${payorAbbrev} submission template. Running 312 scrubbing rules.`,
+      narration: isDocUpload
+        ? `Composing pre-auth packet from paper records · ${payorAbbrev} submission template. Running 312 scrubbing rules over OCR'd content.`
+        : `Composing claim packet · 12 artifacts · ${payorAbbrev} submission template. Running 312 scrubbing rules.`,
       probDelta: 2,
       ms: 850,
     },
     {
       id: `${c.id}_s7`,
       kind: "validate",
-      narration: `Scrubbing complete · 0 critical · ${c.acceptance_score >= 0.85 ? "1 advisory" : "issues flagged"} (LOS ${c.los_days}d vs DRG benchmark).`,
+      narration: isDocUpload
+        ? `Scrubbing complete · 0 critical · OCR confidence ≥ 0.94 across all uploaded docs.`
+        : `Scrubbing complete · 0 critical · ${c.acceptance_score >= 0.85 ? "1 advisory" : "issues flagged"} (LOS ${c.los_days}d vs DRG benchmark).`,
       probDelta: 1.3,
       ms: 700,
     },

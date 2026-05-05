@@ -9,7 +9,7 @@ export function ClearancesPage() {
   const { drawerOpen, close } = useClearances();
   return (
     <>
-      <TopBar breadcrumb="Workspace · Front cycle" title="Financial Clearance — before they walk in" />
+      <TopBar title="Financial Clearance" />
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
         <ClearancesKpis />

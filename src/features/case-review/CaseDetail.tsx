@@ -6,6 +6,8 @@ import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
 import { query } from "@/lib/db";
 import { useCaseReview } from "@/store/useCaseReview";
+import { AssistActions } from "@/features/worklist/AssistActions";
+import { UploadedDocsPanel } from "@/features/worklist/UploadedDocsPanel";
 
 type Detail = {
   id: string;
@@ -45,6 +47,24 @@ const ACUITY_TONE: Record<string, "good" | "info" | "warn" | "bad"> = {
 export function CaseDetail() {
   const { selectedId, extensionSubmitted, submitExtension } = useCaseReview();
   const [d, setD] = useState<Detail | null>(null);
+  const [docCount, setDocCount] = useState(0);
+
+  // Track uploaded-doc count for the current inpatient · used to lock extension submit
+  // when this is a paper-driven case (e.g. ip15) until the associate uploads evidence.
+  useEffect(() => {
+    if (!selectedId) { setDocCount(0); return; }
+    let cancelled = false;
+    const tick = () => {
+      query<{ n: number }>(
+        `SELECT COUNT(*) AS n FROM uploaded_docs
+          WHERE owner_kind = 'inpatient' AND owner_id = ? AND status IN ('coded','handed_to_packet')`,
+        [selectedId],
+      ).then((rows) => { if (!cancelled) setDocCount(rows[0]?.n ?? 0); });
+    };
+    tick();
+    const i = setInterval(tick, 700);
+    return () => { cancelled = true; clearInterval(i); };
+  }, [selectedId]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -81,7 +101,7 @@ export function CaseDetail() {
   return (
     <div className="grid h-full min-h-0 grid-cols-12 gap-3 p-4 pt-12">
       {/* Left — patient + LOS visualization + medical-necessity gaps */}
-      <div className="col-span-5 flex min-h-0 flex-col gap-3 overflow-y-auto pr-1">
+      <div className="col-span-6 flex min-h-0 flex-col gap-3 overflow-y-auto pr-1 [&>*]:shrink-0">
         {/* Identity */}
         <Panel tone="raised" className="overflow-hidden">
           <div className="h-[3px] w-full" style={{ background: d.payor_color }} />
@@ -110,6 +130,10 @@ export function CaseDetail() {
             </div>
           </div>
         </Panel>
+
+        <AssistActions patientName={d.patient_name} compact />
+
+        <UploadedDocsPanel ownerKind="inpatient" ownerId={d.id} patientName={d.patient_name} />
 
         {/* LOS visual */}
         <Panel className="overflow-hidden">
@@ -199,26 +223,29 @@ export function CaseDetail() {
       </div>
 
       {/* Right — auth extension drafter (when relevant) + discharge readiness */}
-      <div className="col-span-7 flex min-h-0 flex-col gap-3 overflow-y-auto pl-1">
+      <div className="col-span-6 flex min-h-0 flex-col gap-3 overflow-y-auto pl-1 [&>*]:shrink-0">
         {/* Discharge readiness */}
         <Panel className="overflow-hidden">
           <PanelHeader
             eyebrow="Discharge readiness · LSTM model"
-            title={
-              <span className="flex items-baseline gap-2">
-                <span className="numeric" style={{ color: drPct >= 80 ? "var(--color-emerald)" : drPct >= 50 ? "var(--color-champagne)" : "var(--color-coral)" }}>{drPct}%</span>
-                <span className="text-ink-mute text-[13px]">ready</span>
-              </span>
-            }
-            right={
-              drPct >= 80 ? <Pill tone="good" dot>Discharge today</Pill>
-              : drPct >= 50 ? <Pill tone="champagne" dot>Trending</Pill>
-              : <Pill tone="warn" dot>Continued stay</Pill>
-            }
+            title="How close to going home"
           />
           <div className="hairline-x mx-5" />
-          <div className="px-4 py-3">
-            <div className="h-2 overflow-hidden rounded-full bg-[var(--color-canvas-deep)]">
+          <div className="flex flex-col gap-3 px-4 py-3.5">
+            <div className="flex items-center justify-between gap-3">
+              <span
+                className="numeric font-display leading-none text-[40px]"
+                style={{ color: drPct >= 80 ? "var(--color-emerald)" : drPct >= 50 ? "var(--color-champagne)" : "var(--color-coral)" }}
+              >
+                {drPct}<span className="ml-1 text-[18px] text-ink-mute">%</span>
+              </span>
+              {drPct >= 80
+                ? <Pill tone="good" dot>Discharge today</Pill>
+                : drPct >= 50
+                  ? <Pill tone="champagne" dot>Trending</Pill>
+                  : <Pill tone="warn" dot>Continued stay</Pill>}
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-[var(--color-canvas-deep)]">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${drPct}%` }}
@@ -226,8 +253,8 @@ export function CaseDetail() {
                 className="h-full rounded-full bg-gradient-to-r from-[var(--color-coral)] via-[var(--color-champagne)] to-[var(--color-emerald)]"
               />
             </div>
-            <p className="mt-2.5 font-mono-tight text-[10.5px] leading-relaxed text-ink-faint">
-              Predicted from vital sign trends, lab trajectory, mobility assessments, and physician note sentiment over the last {d.day_of_stay} days.
+            <p className="font-mono-tight text-[10.5px] leading-relaxed text-ink-faint">
+              From vitals, lab trajectory, mobility, and physician notes · last {d.day_of_stay} days.
             </p>
           </div>
         </Panel>
@@ -266,6 +293,13 @@ export function CaseDetail() {
                     <div className="flex items-center gap-2 rounded-md border border-[var(--color-emerald)]/30 bg-[var(--color-emerald)]/10 px-3 py-2">
                       <ShieldCheck size={12} className="text-[var(--color-emerald)]" />
                       <span className="text-[11.5px] text-[var(--color-emerald)]">Extension request submitted to {d.payor_name} · UM team will review</span>
+                    </div>
+                  ) : docCount < 2 ? (
+                    <div className="flex items-start gap-2 rounded-md border border-[var(--color-amber)]/30 bg-[var(--color-amber)]/10 px-3 py-2">
+                      <AlertTriangle size={12} className="mt-0.5 shrink-0 text-[var(--color-amber)]" />
+                      <span className="text-[11.5px] leading-snug text-ink-soft">
+                        Submit blocked · upload at least 2 paper docs (culture + progress notes / labs) so the extension cites real evidence.
+                      </span>
                     </div>
                   ) : (
                     <div className="flex gap-2">

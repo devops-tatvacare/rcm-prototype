@@ -6,7 +6,18 @@ import type { Database } from "sql.js";
 import wasmUrl from "sql.js/dist/sql-wasm.wasm?url";
 import { SCHEMA, SEED_SQL } from "./seed";
 
-const STORAGE_KEY = "rcm_prototype_db_v5";
+const STORAGE_KEY = "rcm_prototype_db_v9";
+
+// Wipe any older version keys on module init — keeps localStorage clean and
+// guarantees a stale prior version can never resurrect after a schema change.
+try {
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith("rcm_prototype_db_") && k !== STORAGE_KEY) {
+      localStorage.removeItem(k);
+    }
+  }
+} catch { /* ignore (SSR / privacy mode) */ }
 
 let dbPromise: Promise<Database> | null = null;
 

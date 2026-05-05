@@ -9,7 +9,7 @@ export function EligibilityPage() {
   const { drawerOpen, closeDrawer } = useEligibility();
   return (
     <>
-      <TopBar breadcrumb="Workspace · Front cycle" title="Eligibility — 90-second checks" />
+      <TopBar title="Eligibility" />
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
         <EligibilityKpis />

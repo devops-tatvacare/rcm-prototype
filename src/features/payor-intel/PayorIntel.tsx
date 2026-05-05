@@ -25,7 +25,7 @@ export function PayorIntel() {
 
   return (
     <>
-      <TopBar breadcrumb="Workspace · Mid-cycle" title="Payor Intelligence" />
+      <TopBar title="Payor Intelligence" />
 
       <div className="flex flex-1 flex-col gap-3 overflow-auto p-4">
         {/* Per-payor scorecards */}
@@ -57,21 +57,21 @@ function PayorCard({ payor, index }: { payor: Payor; index: number }) {
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.05 * index, type: "spring", stiffness: 220, damping: 26 }}
-      className="col-span-12 lg:col-span-4"
+      className="col-span-12 lg:col-span-4 flex"
     >
-      <Panel tone="raised" className="overflow-hidden">
+      <Panel tone="raised" className="flex w-full flex-col overflow-hidden">
         {/* Stripe at top in payor color */}
         <div className="h-1 w-full" style={{ background: `linear-gradient(90deg, transparent, ${payor.color}, transparent)` }} />
-        <div className="p-5">
-          <div className="flex items-start justify-between">
-            <div>
+        <div className="flex flex-1 flex-col p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
               <div className="eyebrow">{payor.kind === "government" ? "Gov scheme" : "Private payor"}</div>
-              <div className="mt-1 font-display text-[22px] tracking-tight text-ink">{payor.name}</div>
-              <div className="mt-0.5 font-mono-tight text-[11px] text-ink-faint">
-                {fmtCompactIDR(payor.monthly_volume_idr)} / mo · {payor.threads_ingested.toLocaleString()} threads ingested
+              <div className="mt-1 truncate font-display text-[22px] tracking-tight text-ink">{payor.name}</div>
+              <div className="mt-0.5 truncate whitespace-nowrap font-mono-tight text-[11px] text-ink-faint">
+                {fmtCompactIDR(payor.monthly_volume_idr)} / mo · {payor.threads_ingested.toLocaleString()} threads
               </div>
             </div>
-            <Pill tone={payor.clean_claim_rate >= 0.8 ? "good" : "warn"} dot>
+            <Pill tone={payor.clean_claim_rate >= 0.8 ? "good" : "warn"} dot className="shrink-0">
               {Math.round(payor.clean_claim_rate * 100)}% CCR
             </Pill>
           </div>

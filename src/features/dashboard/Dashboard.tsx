@@ -1,132 +1,156 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { ArrowDownRight, ArrowUpRight, Sparkles } from "lucide-react";
+import { ClipboardList, AlertTriangle, Clock, UserRound, ArrowRight, Sparkles, FileWarning, Building2, ScanLine, Activity, Wallet, ShieldAlert, TrendingUp } from "lucide-react";
 import { TopBar } from "@/components/layout/TopBar";
 import { Panel, PanelHeader } from "@/components/ui/Panel";
-import { Pill } from "@/components/ui/Pill";
-import { Sparkline } from "@/components/ui/Sparkline";
-import { MetricNumber } from "@/components/ui/MetricNumber";
-import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { fmtCompactIDR } from "@/lib/format";
-import { query } from "@/lib/db";
-import { CashFlow } from "./CashFlow";
-import { Pipeline } from "./Pipeline";
+import { cn } from "@/lib/cn";
+import { useWorklist } from "@/store/useWorklist";
 import { RecentActivity } from "./RecentActivity";
 
 export function Dashboard() {
-  const [period, setPeriod] = useState<"d" | "w" | "m">("m");
-  const [cashflow, setCashflow] = useState<{ d: string; billed_idr: number; collected_idr: number; denied_idr: number }[]>([]);
+  const { items, loaded, load } = useWorklist();
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    query<{ d: string; billed_idr: number; collected_idr: number; denied_idr: number }>(
-      "SELECT d, billed_idr, collected_idr, denied_idr FROM cashflow_days ORDER BY d ASC",
-    ).then(setCashflow);
-  }, []);
+  useEffect(() => { load(); }, [load]);
 
-  const totalBilled = cashflow.reduce((a, r) => a + r.billed_idr, 0);
-  const totalCollected = cashflow.reduce((a, r) => a + r.collected_idr, 0);
-  const totalDenied = cashflow.reduce((a, r) => a + r.denied_idr, 0);
+  const kpis = useMemo(() => {
+    const total = items.length;
+    const onYou = items.filter((i) => i.awaiting_human);
+    const atRisk = items.filter((i) => i.riskLabel);
+    const slaSoon = items.filter((i) => i.sla_hours != null && i.sla_hours <= 24);
+    const auto = items.filter((i) => i.subStage === "PD_AUTO" || i.subStage === "PA_AUTO");
+    const dollarsOnYou = onYou.reduce((s, i) => s + i.amount_idr, 0);
+    const queueValue = items.reduce((s, i) => s + i.amount_idr, 0);
+    const atRiskValue = atRisk.reduce((s, i) => s + i.amount_idr, 0);
+    const autoValue = auto.reduce((s, i) => s + i.amount_idr, 0);
+    return {
+      total,
+      onYou: onYou.length,
+      atRisk: atRisk.length,
+      slaSoon: slaSoon.length,
+      dollarsOnYou,
+      queueValue,
+      atRiskValue,
+      autoValue,
+      preauth: items.filter((i) => i.silo === "preauth").length,
+      concurrent: items.filter((i) => i.silo === "concurrent").length,
+      postdischarge: items.filter((i) => i.silo === "postdischarge").length,
+    };
+  }, [items]);
 
   return (
     <>
-      <TopBar breadcrumb="Workspace · CFO" title="Cash-flow Cockpit" />
+      <TopBar title="Command Center" />
 
-      <div className="flex flex-1 flex-col gap-3 overflow-auto p-4">
-        {/* Headline strip */}
-        <div className="grid grid-cols-12 gap-3">
-          <KPI
-            span={3}
-            eyebrow="Time to cash"
-            value={26}
-            suffix="d"
-            delta={-12}
-            deltaTone="good"
-            spark={[42, 39, 38, 37, 33, 32, 31, 28, 28, 27, 26]}
-            note="vs 38d before agent"
+      <div className="flex flex-1 flex-col gap-3 overflow-auto p-4 [&>*]:shrink-0">
+        {/* KPI strip — counts */}
+        <div className="grid grid-cols-4 gap-3">
+          <Tile
+            icon={ClipboardList}
+            tone="ink"
+            label="Today's queue"
+            value={kpis.total}
+            note={`${kpis.preauth} pre-auth · ${kpis.concurrent} concurrent · ${kpis.postdischarge} post-discharge`}
           />
-          <KPI
-            span={3}
-            eyebrow="Eligibility TAT"
-            value={68}
-            suffix="s"
-            delta={-99}
-            deltaTone="good"
-            deltaUnit="%"
-            spark={[14400, 9000, 5400, 3600, 1800, 600, 200, 120, 90, 75, 68]}
-            note="vs 4–24h manual"
+          <Tile
+            icon={UserRound}
             tone="champagne"
+            label="Awaiting me"
+            value={kpis.onYou}
+            note={loaded ? fmtCompactIDR(kpis.dollarsOnYou) : "—"}
           />
-          <KPI
-            span={3}
-            eyebrow="Clean claim rate"
-            value={89}
-            suffix="%"
-            delta={+18}
-            deltaTone="good"
-            spark={[71, 73, 74, 75, 78, 81, 84, 86, 87, 88, 89]}
-            note="first-pass acceptance"
-            tone="champagne"
+          <Tile
+            icon={AlertTriangle}
+            tone="coral"
+            label="At risk"
+            value={kpis.atRisk}
+            note="needs review"
           />
-          <KPI
-            span={3}
-            eyebrow="Appeal success"
-            value={73}
-            suffix="%"
-            delta={+38}
-            deltaTone="good"
-            spark={[35, 38, 42, 48, 53, 58, 62, 67, 70, 72, 73]}
-            note="vs 30–45% baseline"
-            tone="violet"
+          <Tile
+            icon={Clock}
+            tone="amber"
+            label="SLA <24h"
+            value={kpis.slaSoon}
+            note="action today"
           />
         </div>
 
-        {/* Row: cashflow + pipeline */}
-        <div className="grid grid-cols-12 gap-3">
-          <div className="col-span-12 lg:col-span-8">
-            <Panel className="overflow-hidden">
-              <PanelHeader
-                eyebrow="Last 30 days · IDR"
-                title="Cash flow waterfall"
-                right={
-                  <div className="flex items-center gap-3">
-                    <div className="hidden items-center gap-3 md:flex">
-                      <Legend dot="#e7c08a" label="Billed" />
-                      <Legend dot="#34d399" label="Collected" />
-                      <Legend dot="#fb7185" label="Denied" />
-                    </div>
-                    <SegmentedControl
-                      value={period}
-                      onChange={setPeriod}
-                      options={[
-                        { value: "d", label: "D" },
-                        { value: "w", label: "W" },
-                        { value: "m", label: "M" },
-                      ]}
-                    />
-                  </div>
-                }
-              />
-              <div className="hairline-x mx-5" />
-              <CashFlow data={cashflow} />
-              <div className="grid grid-cols-3 gap-3 px-5 pt-1 pb-5">
-                <Tot label="Billed" value={totalBilled} tone="champagne" />
-                <Tot label="Collected" value={totalCollected} tone="emerald" />
-                <Tot label="Denied · in appeal" value={totalDenied} tone="coral" />
-              </div>
-            </Panel>
-          </div>
-          <div className="col-span-12 lg:col-span-4">
-            <Pipeline />
-          </div>
+        {/* KPI strip — revenue */}
+        <div className="grid grid-cols-4 gap-3">
+          <Money icon={Wallet}      tone="ink"       label="$ in queue"          value={kpis.queueValue}     note="all silos" />
+          <Money icon={ShieldAlert} tone="coral"     label="$ at risk"           value={kpis.atRiskValue}    note="if denied / lost" />
+          <Money icon={Sparkles}    tone="champagne" label="$ auto-cleared"      value={kpis.autoValue}      note="zero touch" />
+          <Money icon={TrendingUp}  tone="emerald"   label="$ recovered · today" value={48_300_000}          note="appeals + remediation" />
         </div>
 
-        {/* Row: recent activity + agent wins */}
+        {/* Quick actions */}
+        <Panel className="overflow-hidden">
+          <PanelHeader
+            eyebrow="Quick actions · pick a stack and go"
+            title="What needs me first"
+          />
+          <div className="hairline-x mx-5" />
+          <div className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-3 xl:grid-cols-6">
+            <ActionChip
+              icon={UserRound}
+              tone="champagne"
+              label="Awaiting me"
+              sub="post-discharge"
+              count={items.filter((i) => i.silo === "postdischarge" && i.awaiting_human).length}
+              onClick={() => navigate("/worklist?silo=postdischarge&filter=awaitingHuman")}
+            />
+            <ActionChip
+              icon={AlertTriangle}
+              tone="coral"
+              label="At-risk"
+              sub="post-discharge"
+              count={items.filter((i) => i.silo === "postdischarge" && i.riskLabel).length}
+              onClick={() => navigate("/worklist?silo=postdischarge&filter=atRisk")}
+            />
+            <ActionChip
+              icon={Clock}
+              tone="amber"
+              label="Pre-auth aging"
+              sub="past 48h"
+              count={items.filter((i) => i.subStage === "PA_AGING").length}
+              onClick={() => navigate("/worklist?silo=preauth&subStage=PA_AGING")}
+            />
+            <ActionChip
+              icon={FileWarning}
+              tone="violet"
+              label="Denials"
+              sub="needing appeal"
+              count={items.filter((i) => i.subStage === "PD_DENIED").length}
+              onClick={() => navigate("/worklist?silo=postdischarge&subStage=PD_DENIED")}
+            />
+            <ActionChip
+              icon={Activity}
+              tone="info"
+              label="Extensions"
+              sub="concurrent · drafted"
+              count={items.filter((i) => i.subStage === "C_WATCH_EXTENSION").length}
+              onClick={() => navigate("/worklist?silo=concurrent&subStage=C_WATCH_EXTENSION")}
+            />
+            <ActionChip
+              icon={ScanLine}
+              tone="ink"
+              label="Ready to submit"
+              sub="post-discharge"
+              count={items.filter((i) => i.subStage === "PD_READY").length}
+              onClick={() => navigate("/worklist?silo=postdischarge&subStage=PD_READY")}
+            />
+          </div>
+        </Panel>
+
+        {/* Bottom row */}
         <div className="grid grid-cols-12 gap-3">
           <div className="col-span-12 lg:col-span-7">
             <RecentActivity />
           </div>
           <div className="col-span-12 lg:col-span-5">
-            <AgentWins />
+            <AgentDayPanel />
           </div>
         </div>
       </div>
@@ -134,84 +158,130 @@ export function Dashboard() {
   );
 }
 
-function KPI({
-  span, eyebrow, value, suffix, decimals, delta, deltaTone, deltaUnit, spark, note, tone = "ink",
-}: {
-  span: number;
-  eyebrow: string;
+function Money({ icon: Icon, label, value, note, tone }: {
+  icon: any;
+  label: string;
   value: number;
-  suffix?: string;
-  decimals?: number;
-  delta: number;
-  deltaTone: "good" | "bad";
-  deltaUnit?: string;
-  spark: number[];
   note: string;
-  tone?: "ink" | "champagne" | "violet";
+  tone: "ink" | "champagne" | "coral" | "emerald";
 }) {
-  const TrendIcon = delta > 0 ? ArrowUpRight : ArrowDownRight;
-  const sparkColor = tone === "champagne" ? "var(--color-champagne)" : tone === "violet" ? "var(--color-violet)" : "var(--color-emerald)";
-  const sparkFill = tone === "champagne" ? "rgba(231,192,138,0.18)" : tone === "violet" ? "rgba(167,139,250,0.18)" : "rgba(52,211,153,0.18)";
-  const unit = deltaUnit ?? (suffix === "%" ? "pts" : suffix === "d" ? "d" : "");
-
+  const color =
+    tone === "champagne" ? "var(--color-champagne)" :
+    tone === "coral" ? "var(--color-coral)" :
+    tone === "emerald" ? "var(--color-emerald)" : "var(--color-ink)";
   return (
-    <Panel className={`col-span-${span} overflow-hidden`}>
-      <div className="flex items-start justify-between p-4 pb-1">
-        <div className="flex flex-col gap-1">
-          <span className="eyebrow">{eyebrow}</span>
-          <div className="flex items-baseline gap-1.5">
-            <span className="numeric font-display text-[40px] leading-none text-ink">
-              <MetricNumber value={value} decimals={decimals ?? 0} />
-            </span>
-            <span className="font-display text-[18px] text-ink-mute">{suffix}</span>
-          </div>
-        </div>
-        <Sparkline data={spark} stroke={sparkColor} fill={sparkFill} />
-      </div>
-      <div className="flex items-center justify-between border-t border-line-soft px-4 py-2">
-        <span className="font-mono-tight text-[10.5px] text-ink-faint">{note}</span>
-        <span className={`flex items-center gap-1 font-mono-tight text-[11px] ${deltaTone === "good" ? "text-[var(--color-emerald)]" : "text-[var(--color-coral)]"}`}>
-          <TrendIcon size={11} />
-          {delta > 0 ? "+" : ""}{delta}
-          {unit && ` ${unit}`}
+    <Panel className="overflow-hidden">
+      <motion.div
+        initial={{ opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="flex items-start gap-2.5 px-3 py-2.5"
+      >
+        <span
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border"
+          style={{ borderColor: `color-mix(in oklab, ${color} 30%, transparent)`, background: `color-mix(in oklab, ${color} 12%, transparent)`, color }}
+        >
+          <Icon size={13} strokeWidth={1.6} />
         </span>
-      </div>
+        <div className="flex flex-col leading-tight min-w-0">
+          <span className="eyebrow truncate">{label}</span>
+          <span className="numeric font-display text-[18px] leading-none mt-0.5" style={{ color }}>
+            {fmtCompactIDR(value)}
+          </span>
+          <span className="font-mono-tight text-[10px] text-ink-faint mt-0.5 truncate">{note}</span>
+        </div>
+      </motion.div>
     </Panel>
   );
 }
 
-function Legend({ dot, label }: { dot: string; label: string }) {
+function Tile({ icon: Icon, label, value, note, tone }: {
+  icon: any;
+  label: string;
+  value: number;
+  note: string;
+  tone: "ink" | "champagne" | "coral" | "amber";
+}) {
+  const color =
+    tone === "champagne" ? "var(--color-champagne)" :
+    tone === "coral" ? "var(--color-coral)" :
+    tone === "amber" ? "var(--color-amber)" : "var(--color-ink)";
   return (
-    <span className="flex items-center gap-1.5 font-mono-tight text-[10.5px] text-ink-mute">
-      <span className="h-1.5 w-1.5 rounded-full" style={{ background: dot }} />
-      {label}
-    </span>
+    <Panel className="overflow-hidden">
+      <motion.div
+        initial={{ opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="flex items-start gap-2.5 px-3 py-2.5"
+      >
+        <span
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border"
+          style={{ borderColor: `color-mix(in oklab, ${color} 30%, transparent)`, background: `color-mix(in oklab, ${color} 12%, transparent)`, color }}
+        >
+          <Icon size={13} strokeWidth={1.6} />
+        </span>
+        <div className="flex flex-col leading-tight min-w-0">
+          <span className="eyebrow truncate">{label}</span>
+          <span className="numeric font-display text-[20px] text-ink leading-none mt-0.5">{value}</span>
+          <span className="font-mono-tight text-[10px] text-ink-faint mt-0.5 truncate">{note}</span>
+        </div>
+      </motion.div>
+    </Panel>
   );
 }
 
-function Tot({ label, value, tone }: { label: string; value: number; tone: "champagne" | "emerald" | "coral" }) {
-  const c =
-    tone === "champagne" ? "text-[var(--color-champagne)]" : tone === "emerald" ? "text-[var(--color-emerald)]" : "text-[var(--color-coral)]";
+function ActionChip({ icon: Icon, label, sub, count, onClick, tone }: {
+  icon: any;
+  label: string;
+  sub: string;
+  count: number;
+  onClick: () => void;
+  tone: "champagne" | "coral" | "amber" | "violet" | "info" | "ink";
+}) {
+  const color =
+    tone === "champagne" ? "var(--color-champagne)" :
+    tone === "coral" ? "var(--color-coral)" :
+    tone === "amber" ? "var(--color-amber)" :
+    tone === "violet" ? "var(--color-violet)" :
+    tone === "info" ? "var(--color-azure)" : "var(--color-ink)";
   return (
-    <div className="rounded-md border border-line-soft bg-[var(--color-canvas-deep)]/40 px-3 py-2">
-      <div className="eyebrow">{label}</div>
-      <div className={`mt-0.5 numeric text-[18px] ${c}`}>{fmtCompactIDR(value)}</div>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "group relative flex flex-col gap-1.5 rounded-md border border-line-soft bg-[var(--color-canvas-deep)]/40 px-3 py-2.5 text-left transition-colors hover:border-[var(--color-champagne)]/40",
+      )}
+    >
+      <ArrowRight size={11} className="absolute right-2.5 top-2.5 text-ink-faint opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-80" />
+      <div className="flex items-center gap-2">
+        <span
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded border"
+          style={{ borderColor: `color-mix(in oklab, ${color} 30%, transparent)`, background: `color-mix(in oklab, ${color} 12%, transparent)`, color }}
+        >
+          <Icon size={12} strokeWidth={1.7} />
+        </span>
+        <span className="numeric font-display text-[18px] leading-none" style={{ color }}>{count}</span>
+      </div>
+      <div className="flex flex-col leading-tight min-w-0">
+        <span className="truncate text-[11.5px] text-ink">{label}</span>
+        <span className="truncate font-mono-tight text-[9.5px] uppercase tracking-[0.12em] text-ink-faint">{sub}</span>
+      </div>
+    </button>
   );
 }
 
-function AgentWins() {
+function AgentDayPanel() {
   const wins = [
-    { title: "MRI rule fired", note: "BPJS · hysterectomy claim · +11.4 pts", value: "IDR 32.9 M held → released" },
-    { title: "Pre-auth scope mismatch caught", note: "Allianz · TKR · would have denied", value: "IDR 168 M saved" },
-    { title: "SYNTAX score auto-attached", note: "AIA · NSTEMI PCI · cleaner first-pass", value: "−7d on DTP" },
+    { title: "Auto-coded 14 claims", note: "ICD-10 + DRG · ready for review", value: "−2.3h saved" },
+    { title: "Drafted 4 appeal letters", note: "you decide before sending", value: "IDR 264 M at stake" },
+    { title: "Polled 7 payor portals", note: "ack received · trace updated", value: "no manual checks" },
   ];
   return (
     <Panel className="h-full overflow-hidden">
       <PanelHeader
-        eyebrow="Agent wins · today"
-        title="What the agent saved"
-        right={<Pill tone="champagne" dot>Auto</Pill>}
+        eyebrow="What the agent did for you today"
+        title="AI did 60% of the work"
+        right={<span className="font-mono-tight text-[10px] text-ink-faint">since 09:00</span>}
       />
       <div className="hairline-x mx-5" />
       <div className="flex flex-col gap-2 p-4">
@@ -230,9 +300,16 @@ function AgentWins() {
               <span className="text-[12.5px] font-medium text-ink">{w.title}</span>
               <span className="font-mono-tight text-[10.5px] text-ink-faint">{w.note}</span>
             </div>
-            <span className="numeric text-[12.5px] text-[var(--color-emerald)]">{w.value}</span>
+            <span className="numeric text-[11.5px] text-[var(--color-emerald)] whitespace-nowrap">{w.value}</span>
           </motion.div>
         ))}
+        {/* gentle nudge */}
+        <div className="mt-1 flex items-center gap-2 rounded-md border border-[var(--color-azure)]/25 bg-[var(--color-azure)]/[0.06] px-3 py-2">
+          <Building2 size={11} className="text-[var(--color-azure)]" />
+          <span className="font-mono-tight text-[10.5px] text-[var(--color-azure)]">
+            Your turn · the 40% that needs human judgment is in the worklist.
+          </span>
+        </div>
       </div>
     </Panel>
   );

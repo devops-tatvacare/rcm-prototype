@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { query } from "@/lib/db";
 import { fmtCompactIDR } from "@/lib/format";
 import { useDenials } from "@/store/useDenials";
+import { AssistActions } from "@/features/worklist/AssistActions";
 
 type Detail = {
   id: string;
@@ -124,6 +125,8 @@ export function AppealDrafter() {
             </div>
           </div>
         </Panel>
+
+        <AssistActions patientName={detail.patient_name} compact />
 
         {/* Reason text */}
         <Panel className="overflow-hidden">

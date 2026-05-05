@@ -1,6 +1,5 @@
 import { motion } from "motion/react";
-import { Activity, Bell, Search } from "lucide-react";
-import { Pill } from "@/components/ui/Pill";
+import { Bell, Search } from "lucide-react";
 
 export function TopBar({ title, breadcrumb }: { title: string; breadcrumb?: string }) {
   return (
@@ -22,11 +21,6 @@ export function TopBar({ title, breadcrumb }: { title: string; breadcrumb?: stri
           <span className="font-mono-tight text-[11px] text-ink-faint">Search patient · claim · payor…</span>
           <kbd className="rounded border border-line-soft px-1.5 py-0.5 font-mono-tight text-[9.5px] text-ink-faint">⌘K</kbd>
         </motion.div>
-        <Pill tone="good" dot className="font-mono-tight">
-          <Activity size={10} className="-ml-0.5" />
-          Agent online
-        </Pill>
-        <Pill tone="champagne">Cendana Health Group · 4 sites</Pill>
         <button className="flex h-8 w-8 items-center justify-center rounded-full text-ink-faint hover:bg-[var(--color-panel-2)]/60 hover:text-ink-soft">
           <Bell size={14} />
         </button>

@@ -3,13 +3,11 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Dashboard } from "@/features/dashboard/Dashboard";
-import { PacketBuilder } from "@/features/packet-builder/PacketBuilder";
 import { PayorIntel } from "@/features/payor-intel/PayorIntel";
 import { EligibilityPage } from "@/features/eligibility/EligibilityPage";
-import { DenialsPage } from "@/features/denials/DenialsPage";
 import { ClearancesPage } from "@/features/clearances/ClearancesPage";
-import { CasePage } from "@/features/case-review/CasePage";
 import { EvidenceDrawer } from "@/features/payor-intel/EvidenceDrawer";
+import { WorklistPage } from "@/features/worklist/WorklistPage";
 import { getDb } from "@/lib/db";
 
 export default function App() {
@@ -50,12 +48,15 @@ export default function App() {
           >
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/worklist" element={<WorklistPage />} />
+              <Route path="/payors" element={<PayorIntel />} />
+              {/* Hidden but reachable */}
               <Route path="/eligibility" element={<EligibilityPage />} />
               <Route path="/clearances" element={<ClearancesPage />} />
-              <Route path="/case-review" element={<CasePage />} />
-              <Route path="/builder" element={<PacketBuilder />} />
-              <Route path="/denials" element={<DenialsPage />} />
-              <Route path="/payors" element={<PayorIntel />} />
+              {/* Old per-stage pages → redirect into Worklist with silo preset */}
+              <Route path="/case-review" element={<Navigate to="/worklist?silo=concurrent" replace />} />
+              <Route path="/builder" element={<Navigate to="/worklist?silo=postdischarge" replace />} />
+              <Route path="/denials" element={<Navigate to="/worklist?silo=postdischarge&filter=awaitingHuman" replace />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </motion.div>

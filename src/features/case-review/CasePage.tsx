@@ -9,7 +9,7 @@ export function CasePage() {
   const { drawerOpen, close } = useCaseReview();
   return (
     <>
-      <TopBar breadcrumb="Workspace · Mid cycle" title="Case Management — concurrent review" />
+      <TopBar title="Case Management" />
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
         <CaseKpis />

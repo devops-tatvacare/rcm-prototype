@@ -79,9 +79,28 @@ export function EvidenceDrawer() {
     ).then((rows) => setRule(rows[0] ?? null));
   }, [ruleId]);
 
+  // When a thread is opened directly from the ingestion list (no rule context),
+  // the rule-scoped fetch above doesn't include it. Resolve it on demand.
+  const [directThread, setDirectThread] = useState<Thread | null>(null);
+  useEffect(() => {
+    if (!threadId) { setDirectThread(null); return; }
+    if (threads.some((t) => t.id === threadId)) { setDirectThread(null); return; }
+    query<Thread>(
+      `SELECT t.id, t.payor_id, py.name AS payor_name, py.color AS payor_color,
+              t.subject, t.sender, t.excerpt, t.body, t.highlight, t.outcome,
+              t.learned_rule, r.description AS rule_text, r.kind AS rule_kind,
+              r.drg_pattern, t.ts
+         FROM email_threads t
+         JOIN payors py ON py.id = t.payor_id
+         LEFT JOIN payor_rules r ON r.id = t.learned_rule
+        WHERE t.id = ?`,
+      [threadId],
+    ).then((rows) => setDirectThread(rows[0] ?? null));
+  }, [threadId, threads]);
+
   const activeThread = useMemo(
-    () => threads.find((t) => t.id === threadId) ?? null,
-    [threads, threadId],
+    () => threads.find((t) => t.id === threadId) ?? directThread,
+    [threads, threadId, directThread],
   );
 
   return (
