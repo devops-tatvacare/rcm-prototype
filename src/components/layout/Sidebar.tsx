@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { motion } from "motion/react";
-import { LayoutDashboard, Building2, RefreshCw, ListChecks, ChevronLeft, ChevronRight } from "lucide-react";
+import { LayoutDashboard, Building2, RefreshCw, ListChecks, ChevronLeft, ChevronRight, Monitor, Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { resetDb } from "@/lib/db";
+import { useTheme } from "@/lib/theme";
 
 type NavItem = { to: string; label: string; Icon: any };
 type NavGroup = { eyebrow: string; items: NavItem[] };
@@ -40,6 +41,11 @@ export function Sidebar() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0");
   }, [collapsed]);
+
+  const themeMode = useTheme((s) => s.mode);
+  const cycleTheme = useTheme((s) => s.cycle);
+  const ThemeIcon = themeMode === "system" ? Monitor : themeMode === "light" ? Sun : Moon;
+  const themeLabel = themeMode === "system" ? "System" : themeMode === "light" ? "Light" : "Dark";
 
   return (
     <motion.aside
@@ -129,7 +135,19 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className={cn("border-t border-line-soft", collapsed ? "p-2" : "p-3")}>
+      <div className={cn("flex flex-col gap-0.5 border-t border-line-soft", collapsed ? "p-2" : "p-3")}>
+        <button
+          onClick={cycleTheme}
+          title={collapsed ? `Theme: ${themeLabel}` : undefined}
+          aria-label={`Theme: ${themeLabel}. Click to cycle.`}
+          className={cn(
+            "group flex w-full items-center rounded-md text-[11.5px] text-ink-faint hover:text-ink-mute",
+            collapsed ? "h-9 justify-center" : "gap-2 px-2 py-1.5",
+          )}
+        >
+          <ThemeIcon size={collapsed ? 13 : 12} className="shrink-0" />
+          {!collapsed && <span>{themeLabel}</span>}
+        </button>
         <button
           onClick={async () => {
             await resetDb();
