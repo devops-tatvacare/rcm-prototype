@@ -1,30 +1,39 @@
 import { useMemo } from "react";
 import { useWorklist, applyFilters } from "@/store/useWorklist";
-import { stageOrderForSilo, subStageLabel, type PatientItem, type SubStage } from "@/lib/worklistAggregator";
+import { stageOrderForSilo, subStageLabel, subStageTooltip, type PatientItem, type SubStage } from "@/lib/worklistAggregator";
 import { PatientCard } from "./PatientCard";
 import { Pill } from "@/components/ui/Pill";
 
+// Tone mapped to the universal vocabulary semantics:
+//   Building → champagne (in-progress)
+//   Submitted → info (sent, waiting)
+//   In Review with insurer → info (insurer working, not on us)
+//   Asked for docs → warn (action needed)
+//   Verdict — Approved → good
+//   Verdict — Approved/Rejected (contesting) → bad
+//   Verdict — Rejected → bad (no current SubStage feeds this)
 function stageTone(sub: SubStage): "neutral" | "info" | "warn" | "bad" | "champagne" | "good" {
   switch (sub) {
     case "PA_BUILDING":
     case "PD_BUILDING":
+    case "C_DISCHARGE_READY":
       return "champagne";
     case "PA_SUBMITTED":
     case "PD_SUBMITTED":
-      return "info";
+    case "PD_READY":
     case "PA_AGING":
+    case "PD_AT_RISK":
+      return "info";
+    case "PA_AT_RISK":
     case "C_WATCH_EXTENSION":
       return "warn";
-    case "PA_AT_RISK":
-    case "PD_AT_RISK":
-      return "bad";
-    case "PD_READY":
-    case "C_DISCHARGE_READY":
+    case "PA_AUTO":
+    case "PD_PAID":
+    case "PD_AUTO":
+    case "C_IN_STAY":
       return "good";
     case "PD_DENIED":
       return "bad";
-    case "C_IN_STAY":
-      return "neutral";
     default:
       return "neutral";
   }
@@ -50,7 +59,7 @@ export function WorklistKanban({ onOpen }: { onOpen: (i: PatientItem) => void })
         const list = grouped[sub] ?? [];
         return (
           <div key={sub} className="flex h-full min-h-0 flex-col rounded-lg border border-line-soft bg-[var(--color-canvas-deep)]/40">
-            <div className="flex items-center justify-between border-b border-line-soft px-3 py-2">
+            <div className="flex items-center justify-between border-b border-line-soft px-3 py-2" title={subStageTooltip(sub)}>
               <Pill tone={stageTone(sub)} size="xs">{subStageLabel(sub)}</Pill>
               <span className="font-mono-tight text-[10px] text-ink-faint">{list.length}</span>
             </div>

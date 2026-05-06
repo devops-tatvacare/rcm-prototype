@@ -34,6 +34,12 @@ export type PatientItem = {
   agent_step: string | null;
   awaiting_human: boolean;
   open_target: OpenTarget;
+  // Document completion percentage (0-100). Drives the "Doc gap" filter chip.
+  // Derivation rules (kept simple, demo-grade):
+  //   - PA_BUILDING / PD_BUILDING / C_DISCHARGE_READY → packet still being assembled, default 65
+  //   - PA_AT_RISK / PD_AT_RISK / C_WATCH_EXTENSION → insurer queried for docs, default 60
+  //   - everything else → 95 (no doc gap to surface)
+  doc_completion_pct: number;
 };
 
 const RISK_FLAG_LABEL: Record<string, string> = {
@@ -43,22 +49,47 @@ const RISK_FLAG_LABEL: Record<string, string> = {
   AGING_PA: "Pre-auth aging beyond SLA",
 };
 
+// Universal vocabulary across all silos — replaces silo-specific jargon.
+// 7 plain-English labels: Building / Submitted / In Review with insurer /
+// Asked for docs / Verdict — Approved / Verdict — Approved/Rejected (contesting) /
+// Verdict — Rejected. (Verdict-Rejected currently has no internal SubStage feeding
+// into it; reserved for a future "closed denial, no appeal" state.)
 const SUB_STAGE_LABEL: Record<SubStage, string> = {
   PA_BUILDING: "Building",
   PA_SUBMITTED: "Submitted",
-  PA_AGING: "Aging",
-  PA_AT_RISK: "At risk",
-  PA_AUTO: "AI auto-cleared",
-  C_IN_STAY: "In stay",
-  C_WATCH_EXTENSION: "Watch · extension",
-  C_DISCHARGE_READY: "Discharge ready",
+  PA_AGING: "In Review with insurer",
+  PA_AT_RISK: "Asked for docs",
+  PA_AUTO: "Verdict — Approved",
+  C_IN_STAY: "Verdict — Approved",
+  C_WATCH_EXTENSION: "Asked for docs",
+  C_DISCHARGE_READY: "Building",
   PD_BUILDING: "Building",
-  PD_READY: "Ready",
+  PD_READY: "Submitted",
   PD_SUBMITTED: "Submitted",
-  PD_AT_RISK: "At risk",
-  PD_DENIED: "Denied · appeal",
-  PD_PAID: "Paid",
-  PD_AUTO: "AI auto-cleared",
+  PD_AT_RISK: "In Review with insurer",
+  PD_DENIED: "Verdict — Approved/Rejected (contesting)",
+  PD_PAID: "Verdict — Approved",
+  PD_AUTO: "Verdict — Approved",
+};
+
+// One-line tooltip per sub-stage (plain English, <80 chars). Shown on column
+// header hover so the audience knows what each state means.
+const SUB_STAGE_TOOLTIP: Record<SubStage, string> = {
+  PA_BUILDING: "AI is assembling the pre-auth packet",
+  PA_SUBMITTED: "Sent to insurer, awaiting acknowledgment",
+  PA_AGING: "Insurer is adjudicating, no action needed",
+  PA_AT_RISK: "Insurer queried, AI gap-filling missing docs",
+  PA_AUTO: "Closed, approved, no contest",
+  C_IN_STAY: "Initial GL stands, patient is utilizing",
+  C_WATCH_EXTENSION: "Insurer queried on extension, AI gap-filling",
+  C_DISCHARGE_READY: "AI is assembling the final claim packet",
+  PD_BUILDING: "AI is assembling the post-discharge claim packet",
+  PD_READY: "Sent to insurer, awaiting acknowledgment",
+  PD_SUBMITTED: "Sent to insurer, awaiting acknowledgment",
+  PD_AT_RISK: "Insurer is adjudicating, no action needed",
+  PD_DENIED: "Partial outcome, agent drafting appeal",
+  PD_PAID: "Closed, approved, no contest",
+  PD_AUTO: "Closed, approved, no contest",
 };
 
 function initial(s: string): string {
@@ -86,6 +117,27 @@ function aiPctFor(sub: SubStage): number {
     case "PD_DENIED": return 70;
     case "PD_PAID": return 100;
     case "PD_AUTO": return 100;
+  }
+}
+
+// Doc completion derivation. We don't have a real per-claim doc-completeness
+// number in seed data, so we derive a demo-grade score from the sub-stage:
+//   - any "Building" or "Asked for docs" stage → packet has gaps (60–70)
+//   - everything else → effectively complete (95)
+// This gives the "Doc gap <80%" filter chip a non-empty result without
+// distorting the underlying seed data.
+function docCompletionFor(sub: SubStage): number {
+  switch (sub) {
+    case "PA_BUILDING":
+    case "PD_BUILDING":
+    case "C_DISCHARGE_READY":
+      return 65;
+    case "PA_AT_RISK":
+    case "PD_AT_RISK":
+    case "C_WATCH_EXTENSION":
+      return 60;
+    default:
+      return 95;
   }
 }
 
@@ -201,6 +253,7 @@ function buildPreAuthItem(c: ClaimRow, now: Date, _docOwners: Set<string>): Pati
     awaiting_human: awaitingHumanFor(sub),
     open_target: { kind: "claim", id: c.id },
     data_origin: originOf(c.source),
+    doc_completion_pct: docCompletionFor(sub),
   };
 }
 
@@ -237,6 +290,7 @@ function buildPostDischargeItem(c: ClaimRow): PatientItem {
     awaiting_human: awaitingHumanFor(sub),
     open_target: { kind: "claim", id: c.id },
     data_origin: originOf(c.source),
+    doc_completion_pct: docCompletionFor(sub),
   };
 }
 
@@ -279,6 +333,7 @@ function buildConcurrentItem(ip: InpatientRow, docOwners: Set<string>): PatientI
     awaiting_human: awaitingHumanFor(sub),
     open_target: { kind: "inpatient", id: ip.id },
     data_origin: docOwners.has(ip.id) ? "DOC_UPLOAD" : "EMR",
+    doc_completion_pct: docCompletionFor(sub),
   };
 }
 
@@ -316,6 +371,7 @@ function buildDenialItem(d: DenialRow, now: Date, docOwners: Set<string>): Patie
     awaiting_human: true,
     open_target: { kind: "denial", id: d.id },
     data_origin: docOwners.has(d.claim_id) ? "DOC_UPLOAD" : "EMR",
+    doc_completion_pct: docCompletionFor(sub),
   };
 }
 
@@ -392,9 +448,31 @@ export async function loadWorklist(now: Date = new Date()): Promise<PatientItem[
   return items;
 }
 
-export const PA_STAGE_ORDER: SubStage[] = ["PA_BUILDING", "PA_SUBMITTED", "PA_AGING", "PA_AT_RISK", "PA_AUTO"];
-export const C_STAGE_ORDER: SubStage[] = ["C_IN_STAY", "C_WATCH_EXTENSION", "C_DISCHARGE_READY"];
-export const PD_STAGE_ORDER: SubStage[] = ["PD_BUILDING", "PD_READY", "PD_SUBMITTED", "PD_AT_RISK", "PD_DENIED", "PD_AUTO"];
+// Canonical universal order of columns:
+//   Building → Submitted → In Review with insurer → Asked for docs →
+//   Verdict-Approved → Verdict-Approved/Rejected (contesting) → Verdict-Rejected
+// Each silo emits the SubStages it actually has, in this order.
+export const PA_STAGE_ORDER: SubStage[] = [
+  "PA_BUILDING",   // Building
+  "PA_SUBMITTED",  // Submitted
+  "PA_AGING",      // In Review with insurer
+  "PA_AT_RISK",    // Asked for docs
+  "PA_AUTO",       // Verdict — Approved
+];
+export const C_STAGE_ORDER: SubStage[] = [
+  "C_DISCHARGE_READY", // Building (final claim packet starting)
+  "C_WATCH_EXTENSION", // Asked for docs
+  "C_IN_STAY",         // Verdict — Approved (initial GL stands)
+];
+export const PD_STAGE_ORDER: SubStage[] = [
+  "PD_BUILDING",  // Building
+  "PD_READY",     // Submitted (collapsed visually with PD_SUBMITTED column-side)
+  "PD_SUBMITTED", // Submitted
+  "PD_AT_RISK",   // In Review with insurer
+  "PD_PAID",      // Verdict — Approved
+  "PD_AUTO",      // Verdict — Approved
+  "PD_DENIED",    // Verdict — Approved/Rejected (contesting)
+];
 
 export function stageOrderForSilo(silo: Silo): SubStage[] {
   if (silo === "preauth") return PA_STAGE_ORDER;
@@ -411,3 +489,9 @@ export function siloLabel(silo: Silo): string {
 export function subStageLabel(sub: SubStage): string {
   return SUB_STAGE_LABEL[sub];
 }
+
+export function subStageTooltip(sub: SubStage): string {
+  return SUB_STAGE_TOOLTIP[sub];
+}
+
+export { SUB_STAGE_LABEL, SUB_STAGE_TOOLTIP };
