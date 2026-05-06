@@ -9,6 +9,8 @@ import { Sparkline } from "@/components/ui/Sparkline";
 import { query } from "@/lib/db";
 import { fmtCompactIDR } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { EmailInbox } from "./EmailInbox";
+import { PayorRulesTable } from "./PayorRulesTable";
 
 type Payor = {
   id: string; name: string; kind: string;
@@ -99,27 +101,12 @@ export function PayorIntel() {
             </div>
           )}
 
-          {activeTab === "inbox" && (
-            <TabPlaceholder title="Email Inbox" subtitle="Coming in P2.3" />
-          )}
+          {activeTab === "inbox" && <EmailInbox />}
 
-          {activeTab === "rules" && (
-            <TabPlaceholder title="Payor Rules" subtitle="Coming in P2.3" />
-          )}
+          {activeTab === "rules" && <PayorRulesTable />}
         </div>
       </div>
     </>
-  );
-}
-
-function TabPlaceholder({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <Panel tone="raised" className="flex min-h-[320px] flex-1 items-center justify-center">
-      <div className="flex flex-col items-center gap-1 text-center">
-        <div className="font-display text-[22px] tracking-tight text-ink">{title}</div>
-        <div className="font-mono-tight text-[11px] text-ink-faint">{subtitle}</div>
-      </div>
-    </Panel>
   );
 }
 
