@@ -3,8 +3,8 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
 
-export default defineConfig({
-  base: process.env.GITHUB_PAGES === "true" ? "/rcm-prototype/" : "/",
+export default defineConfig(({ command }) => ({
+  base: process.env.VITE_BASE_PATH ?? (command === "build" ? "/rcm-prototype/" : "/"),
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: { "@": path.resolve(__dirname, "src") },
@@ -25,4 +25,4 @@ export default defineConfig({
     allowedHosts: true,
     cors: true,
   },
-});
+}));
