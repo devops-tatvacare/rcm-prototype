@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  FileText, FileImage, FlaskConical, ScrollText, Receipt,
+  FileText, FileImage, FlaskConical, ScrollText, Receipt, ShieldCheck,
   Upload, ChevronDown, CheckCircle2, Loader2, Play, Layers, ArrowRight, X,
 } from "lucide-react";
 import { Panel } from "@/components/ui/Panel";
@@ -33,6 +33,7 @@ const KIND_ICON: Record<string, typeof FileText> = {
   handwritten_anesthesia: ScrollText, discharge_summary: ScrollText, op_report: FileText,
   pathology: FlaskConical, lab_result: FlaskConical, imaging: FileImage, invoice: Receipt,
   consult_note: ScrollText, echo_report: FileText, abg: FlaskConical, culture: FlaskConical,
+  policy_certificate: ShieldCheck,
 };
 const KIND_LABEL: Record<string, string> = {
   handwritten_referral: "Handwritten GP referral", ed_note: "ED admission note",
@@ -41,6 +42,7 @@ const KIND_LABEL: Record<string, string> = {
   pathology: "Pathology report", lab_result: "Lab result", imaging: "Imaging",
   invoice: "Final invoice", consult_note: "Consult note", echo_report: "Echo report",
   abg: "ABG result", culture: "Culture result",
+  policy_certificate: "Insurance policy certificate",
 };
 
 const STATUS_META: Record<string, { label: string; tone: "neutral" | "info" | "champagne" | "good"; }> = {
