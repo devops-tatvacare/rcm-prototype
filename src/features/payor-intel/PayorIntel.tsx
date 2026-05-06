@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { TopBar } from "@/components/layout/TopBar";
 import { Panel } from "@/components/ui/Panel";
@@ -7,8 +8,9 @@ import { MetricNumber } from "@/components/ui/MetricNumber";
 import { Sparkline } from "@/components/ui/Sparkline";
 import { query } from "@/lib/db";
 import { fmtCompactIDR } from "@/lib/format";
-import { ThreadIngestion } from "./ThreadIngestion";
-import { RuleLibrary } from "./RuleLibrary";
+import { cn } from "@/lib/cn";
+import { EmailInbox } from "./EmailInbox";
+import { PayorRulesTable } from "./PayorRulesTable";
 
 type Payor = {
   id: string; name: string; kind: string;
@@ -16,33 +18,92 @@ type Payor = {
   threads_ingested: number; monthly_volume_idr: number; color: string;
 };
 
+type Tab = "payors" | "inbox" | "rules";
+
+const TABS: { value: Tab; label: string }[] = [
+  { value: "payors", label: "Payors" },
+  { value: "inbox", label: "Email Inbox" },
+  { value: "rules", label: "Payor Rules" },
+];
+
+function isTab(v: string | null): v is Tab {
+  return v === "payors" || v === "inbox" || v === "rules";
+}
+
 export function PayorIntel() {
   const [payors, setPayors] = useState<Payor[]>([]);
+  const [inboxCount, setInboxCount] = useState(0);
+  const [rulesCount, setRulesCount] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     query<Payor>("SELECT * FROM payors ORDER BY monthly_volume_idr DESC").then(setPayors);
+    query<{ c: number }>("SELECT COUNT(*) AS c FROM email_threads").then((rows) => setInboxCount(rows[0]?.c ?? 0));
+    query<{ c: number }>("SELECT COUNT(*) AS c FROM payor_rules").then((rows) => setRulesCount(rows[0]?.c ?? 0));
   }, []);
+
+  const tabParam = searchParams.get("tab");
+  const activeTab: Tab = isTab(tabParam) ? tabParam : "payors";
+
+  function selectTab(t: Tab) {
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", t);
+    setSearchParams(next, { replace: true });
+  }
+
+  const counts = useMemo<Record<Tab, number>>(
+    () => ({ payors: payors.length, inbox: inboxCount, rules: rulesCount }),
+    [payors.length, inboxCount, rulesCount],
+  );
 
   return (
     <>
       <TopBar title="Payor Intelligence" />
 
-      <div className="flex flex-1 flex-col gap-3 overflow-auto p-4">
-        {/* Per-payor scorecards */}
-        <div className="grid grid-cols-12 gap-3">
-          {payors.map((p, i) => (
-            <PayorCard key={p.id} payor={p} index={i} />
-          ))}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Tabs */}
+        <div className="flex items-center px-4 pt-4">
+          <div className="flex items-center gap-1 rounded-full border border-line-soft bg-[var(--color-canvas-deep)]/60 p-0.5">
+            {TABS.map((t) => {
+              const active = activeTab === t.value;
+              return (
+                <button
+                  key={t.value}
+                  type="button"
+                  onClick={() => selectTab(t.value)}
+                  className={cn(
+                    "relative flex h-8 items-center gap-2 rounded-full px-3.5 transition-colors",
+                    active ? "text-ink" : "text-ink-mute hover:text-ink-soft",
+                  )}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="payor-intel-tab-active"
+                      className="absolute inset-0 -z-[1] rounded-full bg-[var(--color-panel-2)]"
+                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                  <span className="text-[12.5px] font-medium tracking-tight">{t.label}</span>
+                  <span className="font-mono-tight text-[10px] text-ink-faint">{counts[t.value]}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Thread ingestion + rule library */}
-        <div className="grid grid-cols-12 gap-3">
-          <div className="col-span-12 lg:col-span-7">
-            <ThreadIngestion />
-          </div>
-          <div className="col-span-12 lg:col-span-5">
-            <RuleLibrary />
-          </div>
+        {/* Body */}
+        <div className="flex flex-1 flex-col gap-3 overflow-auto p-4">
+          {activeTab === "payors" && (
+            <div className="grid grid-cols-12 gap-3">
+              {payors.map((p, i) => (
+                <PayorCard key={p.id} payor={p} index={i} />
+              ))}
+            </div>
+          )}
+
+          {activeTab === "inbox" && <EmailInbox />}
+
+          {activeTab === "rules" && <PayorRulesTable />}
         </div>
       </div>
     </>
@@ -51,6 +112,7 @@ export function PayorIntel() {
 
 function PayorCard({ payor, index }: { payor: Payor; index: number }) {
   const trendDtp = [44, 42, 40, 39, 38, 36, 33, 30, 27, payor.avg_dtp_days];
+  const navigate = useNavigate();
 
   return (
     <motion.div
@@ -59,7 +121,19 @@ function PayorCard({ payor, index }: { payor: Payor; index: number }) {
       transition={{ delay: 0.05 * index, type: "spring", stiffness: 220, damping: 26 }}
       className="col-span-12 lg:col-span-4 flex"
     >
-      <Panel tone="raised" className="flex w-full flex-col overflow-hidden">
+      <Panel
+        tone="raised"
+        className="flex w-full flex-col overflow-hidden cursor-pointer transition-colors hover:border-[var(--color-champagne)]/30"
+        onClick={() => navigate(`/payors/${payor.id}`)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            navigate(`/payors/${payor.id}`);
+          }
+        }}
+      >
         {/* Stripe at top in payor color */}
         <div className="h-1 w-full" style={{ background: `linear-gradient(90deg, transparent, ${payor.color}, transparent)` }} />
         <div className="flex flex-1 flex-col p-5">
