@@ -191,10 +191,10 @@ export function PatientPage() {
           />
         </div>
 
-        {/* THREE-COLUMN GRID */}
-        <div className="grid min-h-0 flex-1 grid-cols-[260px_1fr_320px] gap-3 p-4 pt-3">
+        {/* THREE-COLUMN GRID — scrolls as one; rails stick within it */}
+        <div className="grid min-h-0 flex-1 grid-cols-[260px_1fr_320px] gap-3 overflow-y-auto p-4 pt-3">
           {/* LEFT RAIL */}
-          <aside className="sticky top-3 self-start">
+          <aside className="sticky top-0 self-start">
             <JourneyTimeline
               activeStage={activeStage}
               onSelectStage={(key: StageKey) => {
@@ -205,7 +205,7 @@ export function PatientPage() {
           </aside>
 
           {/* MAIN — stage sections */}
-          <section className="min-w-0 overflow-auto">
+          <section className="min-w-0">
             <StagesPanel
               activeStage={activeStage}
               payorId={patient.payor_id ?? null}
@@ -214,7 +214,7 @@ export function PatientPage() {
           </section>
 
           {/* RIGHT RAIL — packet readiness */}
-          <aside className="sticky top-3 self-start">
+          <aside className="sticky top-0 self-start">
             <PacketRail
               patientId={patient.id}
               payorId={patient.payor_id ?? null}
