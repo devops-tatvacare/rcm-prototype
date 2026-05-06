@@ -1,13 +1,15 @@
-import { AlertTriangle, Clock, UserRound, Wallet, Search, X, Filter } from "lucide-react";
+import { AlertTriangle, Clock, UserRound, Wallet, Search, X, Filter, Hourglass, FileWarning } from "lucide-react";
 import { useWorklist, type FilterKey } from "@/store/useWorklist";
 import { subStageLabel } from "@/lib/worklistAggregator";
 import { cn } from "@/lib/cn";
 
 const CHIPS: { key: FilterKey; label: string; Icon: any; tone: string }[] = [
-  { key: "atRisk", label: "At risk", Icon: AlertTriangle, tone: "var(--color-coral)" },
+  { key: "atRisk", label: "Has risk flag", Icon: AlertTriangle, tone: "var(--color-coral)" },
   { key: "slaSoon", label: "SLA <24h", Icon: Clock, tone: "var(--color-amber)" },
   { key: "awaitingHuman", label: "Awaiting me", Icon: UserRound, tone: "var(--color-champagne)" },
   { key: "highValue", label: "≥100M IDR", Icon: Wallet, tone: "var(--color-emerald)" },
+  { key: "slaRisk", label: "SLA risk · 5d+", Icon: Hourglass, tone: "var(--color-coral)" },
+  { key: "docGap", label: "Doc gap <80%", Icon: FileWarning, tone: "var(--color-amber)" },
 ];
 
 export function WorklistFilters() {

@@ -3,7 +3,7 @@ import { loadWorklist, type PatientItem, type Silo, type SubStage } from "@/lib/
 
 export type ViewMode = "kanban" | "table";
 
-export type FilterKey = "atRisk" | "slaSoon" | "awaitingHuman" | "highValue";
+export type FilterKey = "atRisk" | "slaSoon" | "awaitingHuman" | "highValue" | "slaRisk" | "docGap";
 
 type State = {
   items: PatientItem[];
@@ -26,7 +26,14 @@ type State = {
   bumpRefresh: () => void;
 };
 
-const EMPTY_FILTERS: Record<FilterKey, boolean> = { atRisk: false, slaSoon: false, awaitingHuman: false, highValue: false };
+const EMPTY_FILTERS: Record<FilterKey, boolean> = {
+  atRisk: false,
+  slaSoon: false,
+  awaitingHuman: false,
+  highValue: false,
+  slaRisk: false,
+  docGap: false,
+};
 
 export const useWorklist = create<State>((set, get) => ({
   items: [],
@@ -65,6 +72,10 @@ export function applyFilters(items: PatientItem[], state: Pick<State, "filters" 
     if (state.filters.slaSoon && (i.sla_hours == null || i.sla_hours > 24)) return false;
     if (state.filters.awaitingHuman && !i.awaiting_human) return false;
     if (state.filters.highValue && i.amount_idr < 100_000_000) return false;
+    // SLA risk: long-aging items — sla_hours present AND > 5 days (120h).
+    if (state.filters.slaRisk && (i.sla_hours == null || i.sla_hours <= 5 * 24)) return false;
+    // Doc gap: packet/insurer-query items where doc completion is below 80%.
+    if (state.filters.docGap && i.doc_completion_pct >= 80) return false;
     if (q) {
       const hay = `${i.patient_name} ${i.drg} ${i.dx} ${i.payor_name}`.toLowerCase();
       if (!hay.includes(q)) return false;

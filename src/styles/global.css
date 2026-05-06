@@ -55,6 +55,52 @@
   --shadow-glow-champagne: 0 0 0 1px rgba(231, 192, 138, 0.4), 0 12px 30px -8px rgba(231, 192, 138, 0.3);
 }
 
+/* ── Light-mode token overrides ──
+   The @theme block above defines dark-mode (default). When data-theme="light"
+   is set on the root element, these overrides take effect. Typography and
+   radius tokens are intentionally not redefined — they are shared. */
+:root[data-theme="light"] {
+  /* ── Surfaces — warm whites with cool greys ── */
+  --color-canvas: #faf7f2;
+  --color-canvas-deep: #f3eee5;
+  --color-panel: #ffffff;
+  --color-panel-2: #f7f3eb;
+  --color-panel-raised: #ffffff;
+  --color-line: #d9d2c4;
+  --color-line-soft: #e8e3d8;
+  --color-line-strong: #b8ad97;
+
+  /* ── Ink ── */
+  --color-ink: #1a1f2c;
+  --color-ink-soft: #3d4554;
+  --color-ink-mute: #6b7585;
+  --color-ink-faint: #9aa3b3;
+
+  /* ── Accents — champagne deepened so it reads on white ── */
+  --color-champagne: #b88d52;
+  --color-champagne-soft: #d6ad79;
+  --color-champagne-deep: #8a6939;
+  --color-emerald: #34d399;
+  --color-emerald-soft: #6ee7b7;
+  --color-emerald-deep: #047857;
+  --color-coral: #fb7185;
+  --color-coral-deep: #be123c;
+  --color-amber: #fbbf24;
+  --color-azure: #60a5fa;
+  --color-violet: #a78bfa;
+
+  /* ── Status (semantic aliases) ── */
+  --color-good: var(--color-emerald);
+  --color-warn: var(--color-amber);
+  --color-bad: var(--color-coral);
+
+  /* ── Shadows — softer on light surfaces ── */
+  --shadow-quiet: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-lift: 0 1px 0 rgba(0, 0, 0, 0.02), 0 18px 40px -16px rgba(0, 0, 0, 0.18);
+  --shadow-glow-emerald: 0 0 0 1px rgba(52, 211, 153, 0.45), 0 12px 30px -8px rgba(52, 211, 153, 0.30);
+  --shadow-glow-champagne: 0 0 0 1px rgba(184, 141, 82, 0.45), 0 12px 30px -8px rgba(184, 141, 82, 0.25);
+}
+
 @layer base {
   *, *::before, *::after {
     border-color: var(--color-line);
@@ -65,15 +111,22 @@
   body {
     font-family: var(--font-sans);
     color: var(--color-ink);
-    background:
+    background-color: var(--color-canvas);
+    background-image:
       radial-gradient(1200px 600px at 18% -10%, rgba(96, 165, 250, 0.06), transparent 60%),
-      radial-gradient(900px 500px at 100% 100%, rgba(231, 192, 138, 0.05), transparent 55%),
-      var(--color-canvas);
+      radial-gradient(900px 500px at 100% 100%, rgba(231, 192, 138, 0.05), transparent 55%);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "cv11", "ss01";
   }
+  /* Tone the gradient overlays for light mode so they don't muddy warm whites. */
+  :root[data-theme="light"] body {
+    background-image:
+      radial-gradient(1200px 600px at 18% -10%, rgba(96, 165, 250, 0.05), transparent 60%),
+      radial-gradient(900px 500px at 100% 100%, rgba(184, 141, 82, 0.06), transparent 55%);
+  }
   ::selection { background: rgba(231, 192, 138, 0.35); color: var(--color-ink); }
+  :root[data-theme="light"] ::selection { background: rgba(184, 141, 82, 0.28); color: var(--color-ink); }
 }
 
 /* ── Utility helpers ── */

@@ -1,29 +1,19 @@
 import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { motion } from "motion/react";
-import { LayoutDashboard, Building2, RefreshCw, ListChecks, ChevronLeft, ChevronRight } from "lucide-react";
+import { LayoutDashboard, Building2, RefreshCw, ListChecks, ChevronLeft, ChevronRight, Monitor, Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { resetDb } from "@/lib/db";
+import { useTheme } from "@/store/useTheme";
 
 type NavItem = { to: string; label: string; Icon: any };
-type NavGroup = { eyebrow: string; items: NavItem[] };
+type NavGroup = { items: NavItem[] };
 
 const GROUPS: NavGroup[] = [
   {
-    eyebrow: "Overview",
     items: [
       { to: "/", label: "Command Center", Icon: LayoutDashboard },
-    ],
-  },
-  {
-    eyebrow: "My day",
-    items: [
       { to: "/worklist", label: "Worklist", Icon: ListChecks },
-    ],
-  },
-  {
-    eyebrow: "Reference",
-    items: [
       { to: "/payors", label: "Payor Intelligence", Icon: Building2 },
     ],
   },
@@ -40,6 +30,11 @@ export function Sidebar() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0");
   }, [collapsed]);
+
+  const themeMode = useTheme((s) => s.mode);
+  const cycleTheme = useTheme((s) => s.cycle);
+  const ThemeIcon = themeMode === "system" ? Monitor : themeMode === "light" ? Sun : Moon;
+  const themeLabel = themeMode === "system" ? "System" : themeMode === "light" ? "Light" : "Dark";
 
   return (
     <motion.aside
@@ -74,14 +69,8 @@ export function Sidebar() {
 
       {/* Nav — grouped by RCM cycle stage */}
       <nav className={cn("flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto", collapsed ? "p-2" : "p-3")}>
-        {GROUPS.map((group) => (
-          <div key={group.eyebrow} className="flex flex-col gap-0.5">
-            {!collapsed && (
-              <div className="px-2 pt-2 pb-1">
-                <span className="eyebrow truncate">{group.eyebrow}</span>
-              </div>
-            )}
-            {collapsed && <div className="my-1 h-px bg-line-soft/60" />}
+        {GROUPS.map((group, groupIdx) => (
+          <div key={groupIdx} className="flex flex-col gap-0.5">
             {group.items.map(({ to, label, Icon }) => (
               <NavLink
                 key={to}
@@ -129,7 +118,19 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className={cn("border-t border-line-soft", collapsed ? "p-2" : "p-3")}>
+      <div className={cn("flex flex-col gap-0.5 border-t border-line-soft", collapsed ? "p-2" : "p-3")}>
+        <button
+          onClick={cycleTheme}
+          title={collapsed ? `Theme: ${themeLabel}` : undefined}
+          aria-label={`Theme: ${themeLabel}. Click to cycle.`}
+          className={cn(
+            "group flex w-full items-center rounded-md text-[11.5px] text-ink-faint hover:text-ink-mute",
+            collapsed ? "h-9 justify-center" : "gap-2 px-2 py-1.5",
+          )}
+        >
+          <ThemeIcon size={collapsed ? 13 : 12} className="shrink-0" />
+          {!collapsed && <span>{themeLabel}</span>}
+        </button>
         <button
           onClick={async () => {
             await resetDb();
