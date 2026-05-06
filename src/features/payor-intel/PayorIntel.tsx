@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { TopBar } from "@/components/layout/TopBar";
 import { Panel } from "@/components/ui/Panel";
@@ -125,6 +125,7 @@ function TabPlaceholder({ title, subtitle }: { title: string; subtitle: string }
 
 function PayorCard({ payor, index }: { payor: Payor; index: number }) {
   const trendDtp = [44, 42, 40, 39, 38, 36, 33, 30, 27, payor.avg_dtp_days];
+  const navigate = useNavigate();
 
   return (
     <motion.div
@@ -133,7 +134,19 @@ function PayorCard({ payor, index }: { payor: Payor; index: number }) {
       transition={{ delay: 0.05 * index, type: "spring", stiffness: 220, damping: 26 }}
       className="col-span-12 lg:col-span-4 flex"
     >
-      <Panel tone="raised" className="flex w-full flex-col overflow-hidden">
+      <Panel
+        tone="raised"
+        className="flex w-full flex-col overflow-hidden cursor-pointer transition-colors hover:border-[var(--color-champagne)]/30"
+        onClick={() => navigate(`/payors/${payor.id}`)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            navigate(`/payors/${payor.id}`);
+          }
+        }}
+      >
         {/* Stripe at top in payor color */}
         <div className="h-1 w-full" style={{ background: `linear-gradient(90deg, transparent, ${payor.color}, transparent)` }} />
         <div className="flex flex-1 flex-col p-5">
