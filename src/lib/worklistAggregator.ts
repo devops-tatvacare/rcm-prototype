@@ -261,8 +261,10 @@ function buildPostDischargeItem(c: ClaimRow): PatientItem {
   let sub: SubStage;
   switch (c.stage) {
     case "BUILDING": sub = "PD_BUILDING"; break;
-    case "READY": sub = "PD_READY"; break;
-    case "SUBMITTED": sub = "PD_SUBMITTED"; break;
+    case "READY":
+    case "SUBMITTED":
+      sub = "PD_SUBMITTED";
+      break;
     case "AT_RISK": sub = "PD_AT_RISK"; break;
     case "PAID": sub = "PD_PAID"; break;
     case "AUTO_CLEARED": sub = "PD_AUTO"; break;
@@ -466,8 +468,7 @@ export const C_STAGE_ORDER: SubStage[] = [
 ];
 export const PD_STAGE_ORDER: SubStage[] = [
   "PD_BUILDING",  // Building
-  "PD_READY",     // Submitted (collapsed visually with PD_SUBMITTED column-side)
-  "PD_SUBMITTED", // Submitted
+  "PD_SUBMITTED", // Submitted (PD_READY rows are routed here too)
   "PD_AT_RISK",   // In Review with insurer
   "PD_PAID",      // Verdict — Approved
   "PD_AUTO",      // Verdict — Approved
