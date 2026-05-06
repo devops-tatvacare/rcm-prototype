@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS payors (
 );
 CREATE TABLE IF NOT EXISTS patients (
   id TEXT PRIMARY KEY, mrn TEXT, name TEXT, age INTEGER, sex TEXT,
-  national_id TEXT, policy_number TEXT, payor_id TEXT, ward_class TEXT
+  national_id TEXT, policy_number TEXT, payor_id TEXT, ward_class TEXT,
+  pre_existing_conditions TEXT
 );
 CREATE TABLE IF NOT EXISTS claims (
   id TEXT PRIMARY KEY, patient_id TEXT, payor_id TEXT, hospital_id TEXT, drg TEXT, dx TEXT,
@@ -54,8 +55,19 @@ CREATE TABLE IF NOT EXISTS denial_codes (
   frequency_pct REAL         -- 0..1, share of denials
 );
 CREATE TABLE IF NOT EXISTS email_threads (
-  id TEXT PRIMARY KEY, payor_id TEXT, subject TEXT, sender TEXT,
+  id TEXT PRIMARY KEY, payor_id TEXT, patient_id TEXT, subject TEXT, sender TEXT,
   excerpt TEXT, body TEXT, highlight TEXT, outcome TEXT, learned_rule TEXT, ts TEXT
+);
+CREATE TABLE IF NOT EXISTS gl_submissions (
+  id TEXT PRIMARY KEY,
+  patient_id TEXT,
+  kind TEXT,
+  state TEXT,
+  amount_idr INTEGER,
+  drafted_at TEXT,
+  submitted_at TEXT,
+  decided_at TEXT,
+  decision_note TEXT
 );
 CREATE TABLE IF NOT EXISTS cashflow_days (
   d TEXT PRIMARY KEY, billed_idr INTEGER, collected_idr INTEGER, denied_idr INTEGER
@@ -122,8 +134,9 @@ const ins = (table: string, rows: Array<Record<string, string | number | null>>)
 
 // ── Seed data ─────────────────────────────────────────────────────────────
 const hospitals = [
-  { id: "h1", name: "Cendana Jakarta", city: "Jakarta", country: "ID", beds: 320 },
-  { id: "h2", name: "Cendana Surabaya", city: "Surabaya", country: "ID", beds: 240 },
+  // P5: h1 renamed to Mayapada Hospital (Budi + Ravi); h2 becomes RS Cendana Jakarta (Siti).
+  { id: "h1", name: "Mayapada Hospital", city: "Jakarta", country: "ID", beds: 410 },
+  { id: "h2", name: "RS Cendana Jakarta", city: "Jakarta", country: "ID", beds: 320 },
   { id: "h3", name: "Cendana Bandung", city: "Bandung", country: "ID", beds: 180 },
   { id: "h4", name: "Cendana Medan", city: "Medan", country: "ID", beds: 160 },
 ];
@@ -169,50 +182,54 @@ const payors = [
 
 // Patients — 28 total across the 4 sites
 const patients = [
-  { id: "p1", mrn: "MRN-734291", name: "Sari Wulandari", age: 47, sex: "F", national_id: "317301**********", policy_number: "0001-2099-447-188", payor_id: "bpjs", ward_class: "Class I" },
-  { id: "p2", mrn: "MRN-734302", name: "Budi Hartono", age: 62, sex: "M", national_id: "317304**********", policy_number: "AIA-IDN-22-118-901", payor_id: "aia", ward_class: "Private" },
-  { id: "p3", mrn: "MRN-734318", name: "Putri Anggraini", age: 34, sex: "F", national_id: "317306**********", policy_number: "0001-2031-901-882", payor_id: "bpjs", ward_class: "Class II" },
-  { id: "p4", mrn: "MRN-734341", name: "Joko Mulyadi", age: 58, sex: "M", national_id: "317308**********", policy_number: "PRU-44-998-122", payor_id: "pru", ward_class: "Private" },
-  { id: "p5", mrn: "MRN-734362", name: "Aditya Pratama", age: 51, sex: "M", national_id: "351002**********", policy_number: "0001-3122-118-441", payor_id: "bpjs", ward_class: "Class I" },
-  { id: "p6", mrn: "MRN-734381", name: "Dian Kusuma", age: 39, sex: "F", national_id: "351008**********", policy_number: "AIA-IDN-22-309-117", payor_id: "aia", ward_class: "Private" },
-  { id: "p7", mrn: "MRN-734395", name: "Reza Firmansyah", age: 66, sex: "M", national_id: "320409**********", policy_number: "0001-4471-002-919", payor_id: "bpjs", ward_class: "Class II" },
-  { id: "p8", mrn: "MRN-734410", name: "Yulia Sari", age: 28, sex: "F", national_id: "320411**********", policy_number: "0001-4499-018-220", payor_id: "bpjs", ward_class: "Class III" },
-  { id: "p9", mrn: "MRN-734428", name: "Wahyu Santoso", age: 54, sex: "M", national_id: "121707**********", policy_number: "PRU-44-991-770", payor_id: "pru", ward_class: "Private" },
-  { id: "p10", mrn: "MRN-734441", name: "Indah Permata", age: 43, sex: "F", national_id: "121711**********", policy_number: "AIA-IDN-22-622-441", payor_id: "aia", ward_class: "Private" },
-  { id: "p11", mrn: "MRN-734457", name: "Krisna Wijaya", age: 71, sex: "M", national_id: "317314**********", policy_number: "0001-5510-117-228", payor_id: "bpjs", ward_class: "Class I" },
-  { id: "p12", mrn: "MRN-734471", name: "Lestari Dewi", age: 36, sex: "F", national_id: "351019**********", policy_number: "0001-5571-208-039", payor_id: "bpjs", ward_class: "Class II" },
-  { id: "p13", mrn: "MRN-734489", name: "Hadi Nugroho", age: 49, sex: "M", national_id: "317320**********", policy_number: "AIA-IDN-22-880-117", payor_id: "aia", ward_class: "Private" },
-  { id: "p14", mrn: "MRN-734502", name: "Rini Setiawati", age: 31, sex: "F", national_id: "320418**********", policy_number: "0001-6620-441-552", payor_id: "bpjs", ward_class: "Class I" },
-  { id: "p15", mrn: "MRN-734518", name: "Bayu Anggara", age: 45, sex: "M", national_id: "317329**********", policy_number: "PRU-44-110-882", payor_id: "pru", ward_class: "Private" },
-  { id: "p16", mrn: "MRN-734534", name: "Citra Maharani", age: 53, sex: "F", national_id: "351027**********", policy_number: "0001-7741-002-118", payor_id: "bpjs", ward_class: "Class II" },
-  { id: "p17", mrn: "MRN-734549", name: "Eko Saputra", age: 60, sex: "M", national_id: "121719**********", policy_number: "AIA-IDN-22-901-330", payor_id: "aia", ward_class: "Private" },
-  { id: "p18", mrn: "MRN-734564", name: "Maya Hartati", age: 41, sex: "F", national_id: "320424**********", policy_number: "0001-8870-118-449", payor_id: "bpjs", ward_class: "Class I" },
-  { id: "p19", mrn: "MRN-734578", name: "Faisal Rahman", age: 56, sex: "M", national_id: "317336**********", policy_number: "PRU-44-330-119", payor_id: "pru", ward_class: "Private" },
-  { id: "p20", mrn: "MRN-734591", name: "Devi Lestari", age: 33, sex: "F", national_id: "351034**********", policy_number: "0001-9921-441-118", payor_id: "bpjs", ward_class: "Class II" },
-  { id: "p21", mrn: "MRN-734604", name: "Arif Hidayat", age: 48, sex: "M", national_id: "121723**********", policy_number: "AIA-IDN-22-117-880", payor_id: "aia", ward_class: "Private" },
-  { id: "p22", mrn: "MRN-734618", name: "Nina Yuliani", age: 38, sex: "F", national_id: "320431**********", policy_number: "0001-2210-001-117", payor_id: "bpjs", ward_class: "Class I" },
-  { id: "p23", mrn: "MRN-734631", name: "Bagus Pradana", age: 64, sex: "M", national_id: "317344**********", policy_number: "PRU-44-228-117", payor_id: "pru", ward_class: "Private" },
-  { id: "p24", mrn: "MRN-734647", name: "Rara Anjani", age: 29, sex: "F", national_id: "351041**********", policy_number: "0001-3340-119-228", payor_id: "bpjs", ward_class: "Class III" },
-  { id: "p25", mrn: "MRN-734660", name: "Galih Prasetya", age: 52, sex: "M", national_id: "317352**********", policy_number: "AIA-IDN-22-558-117", payor_id: "aia", ward_class: "Private" },
-  { id: "p26", mrn: "MRN-734674", name: "Sinta Andini", age: 44, sex: "F", national_id: "320438**********", policy_number: "0001-4470-119-552", payor_id: "bpjs", ward_class: "Class II" },
-  { id: "p27", mrn: "MRN-734687", name: "Pandu Wirawan", age: 67, sex: "M", national_id: "121728**********", policy_number: "PRU-44-447-002", payor_id: "pru", ward_class: "Private" },
-  { id: "p28", mrn: "MRN-734702", name: "Maharani Indah", age: 35, sex: "F", national_id: "317359**********", policy_number: "0001-5580-118-441", payor_id: "bpjs", ward_class: "Class I" },
-  { id: "p29", mrn: "MRN-734718", name: "Tedi Ramadhan", age: 57, sex: "M", national_id: "317365**********", policy_number: "AIA-IDN-22-771-559", payor_id: "aia", ward_class: "Private" },
-  { id: "p30", mrn: "MRN-734724", name: "Sukma Larasati", age: 42, sex: "F", national_id: "320445**********", policy_number: "0001-6691-118-447", payor_id: "bpjs", ward_class: "Class I" },
-  { id: "p31", mrn: "MRN-734739", name: "Hendra Wibowo", age: 63, sex: "M", national_id: "121733**********", policy_number: "PRU-44-552-117", payor_id: "pru", ward_class: "Private" },
-  { id: "p32", mrn: "MRN-734751", name: "Anita Permadi", age: 38, sex: "F", national_id: "351049**********", policy_number: "0001-7720-441-118", payor_id: "bpjs", ward_class: "Class II" },
-  { id: "p33", mrn: "MRN-734767", name: "Lukman Hakim", age: 49, sex: "M", national_id: "317371**********", policy_number: "0001-8830-447-112", payor_id: "bpjs", ward_class: "Class I" },
-  { id: "p34", mrn: "MRN-734781", name: "Wulan Pertiwi", age: 32, sex: "F", national_id: "351055**********", policy_number: "AIA-IDN-22-440-118", payor_id: "aia", ward_class: "Private" },
-  { id: "p35", mrn: "MRN-734798", name: "Ardi Saputra", age: 55, sex: "M", national_id: "121738**********", policy_number: "PRU-44-770-228", payor_id: "pru", ward_class: "Private" },
-  { id: "p36", mrn: "MRN-734814", name: "Kirana Sari", age: 41, sex: "F", national_id: "320452**********", policy_number: "0001-9920-118-449", payor_id: "bpjs", ward_class: "Class II" },
-  { id: "p37", mrn: "MRN-734827", name: "Bima Pratama", age: 37, sex: "M", national_id: "317382**********", policy_number: "AIA-IDN-22-118-664", payor_id: "aia", ward_class: "Private" },
-  { id: "p38", mrn: "MRN-734841", name: "Nadia Khairani", age: 29, sex: "F", national_id: "351068**********", policy_number: "0001-2210-441-118", payor_id: "bpjs", ward_class: "Class II" },
-  { id: "p39", mrn: "MRN-734856", name: "Galih Saputra", age: 46, sex: "M", national_id: "317391**********", policy_number: "AIA-IDN-22-330-882", payor_id: "aia", ward_class: "Private" },
-  { id: "p40", mrn: "MRN-734869", name: "Ratri Hartini", age: 51, sex: "F", national_id: "320461**********", policy_number: "0001-3340-441-228", payor_id: "bpjs", ward_class: "Class I" },
-  { id: "p41", mrn: "MRN-734881", name: "Surya Mahendra", age: 39, sex: "M", national_id: "121742**********", policy_number: "PRU-44-118-770", payor_id: "pru", ward_class: "Private" },
-  { id: "p42", mrn: "MRN-734895", name: "Indira Kusumawati", age: 33, sex: "F", national_id: "351074**********", policy_number: "0001-4470-118-441", payor_id: "bpjs", ward_class: "Class II" },
+  { id: "p1", mrn: "MRN-734291", name: "Sari Wulandari", age: 47, sex: "F", national_id: "317301**********", policy_number: "0001-2099-447-188", payor_id: "bpjs", ward_class: "Class I", pre_existing_conditions: '[]' },
+  { id: "p2", mrn: "MRN-734302", name: "Budi Hartono", age: 62, sex: "M", national_id: "317304**********", policy_number: "AIA-IDN-22-118-901", payor_id: "aia", ward_class: "Private", pre_existing_conditions: '[]' },
+  { id: "p3", mrn: "MRN-734318", name: "Putri Anggraini", age: 34, sex: "F", national_id: "317306**********", policy_number: "0001-2031-901-882", payor_id: "bpjs", ward_class: "Class II", pre_existing_conditions: '[]' },
+  { id: "p4", mrn: "MRN-734341", name: "Joko Mulyadi", age: 58, sex: "M", national_id: "317308**********", policy_number: "PRU-44-998-122", payor_id: "pru", ward_class: "Private", pre_existing_conditions: '[]' },
+  { id: "p5", mrn: "MRN-734362", name: "Aditya Pratama", age: 51, sex: "M", national_id: "351002**********", policy_number: "0001-3122-118-441", payor_id: "bpjs", ward_class: "Class I", pre_existing_conditions: '[]' },
+  { id: "p6", mrn: "MRN-734381", name: "Dian Kusuma", age: 39, sex: "F", national_id: "351008**********", policy_number: "AIA-IDN-22-309-117", payor_id: "aia", ward_class: "Private", pre_existing_conditions: '[]' },
+  { id: "p7", mrn: "MRN-734395", name: "Reza Firmansyah", age: 66, sex: "M", national_id: "320409**********", policy_number: "0001-4471-002-919", payor_id: "bpjs", ward_class: "Class II", pre_existing_conditions: '[]' },
+  { id: "p8", mrn: "MRN-734410", name: "Yulia Sari", age: 28, sex: "F", national_id: "320411**********", policy_number: "0001-4499-018-220", payor_id: "bpjs", ward_class: "Class III", pre_existing_conditions: '[]' },
+  { id: "p9", mrn: "MRN-734428", name: "Wahyu Santoso", age: 54, sex: "M", national_id: "121707**********", policy_number: "PRU-44-991-770", payor_id: "pru", ward_class: "Private", pre_existing_conditions: '[]' },
+  { id: "p10", mrn: "MRN-734441", name: "Indah Permata", age: 43, sex: "F", national_id: "121711**********", policy_number: "AIA-IDN-22-622-441", payor_id: "aia", ward_class: "Private", pre_existing_conditions: '[]' },
+  { id: "p11", mrn: "MRN-734457", name: "Krisna Wijaya", age: 71, sex: "M", national_id: "317314**********", policy_number: "0001-5510-117-228", payor_id: "bpjs", ward_class: "Class I", pre_existing_conditions: '[]' },
+  { id: "p12", mrn: "MRN-734471", name: "Lestari Dewi", age: 36, sex: "F", national_id: "351019**********", policy_number: "0001-5571-208-039", payor_id: "bpjs", ward_class: "Class II", pre_existing_conditions: '[]' },
+  { id: "p13", mrn: "MRN-734489", name: "Hadi Nugroho", age: 49, sex: "M", national_id: "317320**********", policy_number: "AIA-IDN-22-880-117", payor_id: "aia", ward_class: "Private", pre_existing_conditions: '[]' },
+  { id: "p14", mrn: "MRN-734502", name: "Rini Setiawati", age: 31, sex: "F", national_id: "320418**********", policy_number: "0001-6620-441-552", payor_id: "bpjs", ward_class: "Class I", pre_existing_conditions: '[]' },
+  { id: "p15", mrn: "MRN-734518", name: "Bayu Anggara", age: 45, sex: "M", national_id: "317329**********", policy_number: "PRU-44-110-882", payor_id: "pru", ward_class: "Private", pre_existing_conditions: '[]' },
+  { id: "p16", mrn: "MRN-734534", name: "Citra Maharani", age: 53, sex: "F", national_id: "351027**********", policy_number: "0001-7741-002-118", payor_id: "bpjs", ward_class: "Class II", pre_existing_conditions: '[]' },
+  { id: "p17", mrn: "MRN-734549", name: "Eko Saputra", age: 60, sex: "M", national_id: "121719**********", policy_number: "AIA-IDN-22-901-330", payor_id: "aia", ward_class: "Private", pre_existing_conditions: '[]' },
+  { id: "p18", mrn: "MRN-734564", name: "Maya Hartati", age: 41, sex: "F", national_id: "320424**********", policy_number: "0001-8870-118-449", payor_id: "bpjs", ward_class: "Class I", pre_existing_conditions: '[]' },
+  { id: "p19", mrn: "MRN-734578", name: "Faisal Rahman", age: 56, sex: "M", national_id: "317336**********", policy_number: "PRU-44-330-119", payor_id: "pru", ward_class: "Private", pre_existing_conditions: '[]' },
+  { id: "p20", mrn: "MRN-734591", name: "Devi Lestari", age: 33, sex: "F", national_id: "351034**********", policy_number: "0001-9921-441-118", payor_id: "bpjs", ward_class: "Class II", pre_existing_conditions: '[]' },
+  { id: "p21", mrn: "MRN-734604", name: "Arif Hidayat", age: 48, sex: "M", national_id: "121723**********", policy_number: "AIA-IDN-22-117-880", payor_id: "aia", ward_class: "Private", pre_existing_conditions: '[]' },
+  { id: "p22", mrn: "MRN-734618", name: "Nina Yuliani", age: 38, sex: "F", national_id: "320431**********", policy_number: "0001-2210-001-117", payor_id: "bpjs", ward_class: "Class I", pre_existing_conditions: '[]' },
+  { id: "p23", mrn: "MRN-734631", name: "Bagus Pradana", age: 64, sex: "M", national_id: "317344**********", policy_number: "PRU-44-228-117", payor_id: "pru", ward_class: "Private", pre_existing_conditions: '[]' },
+  { id: "p24", mrn: "MRN-734647", name: "Rara Anjani", age: 29, sex: "F", national_id: "351041**********", policy_number: "0001-3340-119-228", payor_id: "bpjs", ward_class: "Class III", pre_existing_conditions: '[]' },
+  { id: "p25", mrn: "MRN-734660", name: "Galih Prasetya", age: 52, sex: "M", national_id: "317352**********", policy_number: "AIA-IDN-22-558-117", payor_id: "aia", ward_class: "Private", pre_existing_conditions: '[]' },
+  { id: "p26", mrn: "MRN-734674", name: "Sinta Andini", age: 44, sex: "F", national_id: "320438**********", policy_number: "0001-4470-119-552", payor_id: "bpjs", ward_class: "Class II", pre_existing_conditions: '[]' },
+  { id: "p27", mrn: "MRN-734687", name: "Pandu Wirawan", age: 67, sex: "M", national_id: "121728**********", policy_number: "PRU-44-447-002", payor_id: "pru", ward_class: "Private", pre_existing_conditions: '[]' },
+  { id: "p28", mrn: "MRN-734702", name: "Maharani Indah", age: 35, sex: "F", national_id: "317359**********", policy_number: "0001-5580-118-441", payor_id: "bpjs", ward_class: "Class I", pre_existing_conditions: '[]' },
+  { id: "p29", mrn: "MRN-734718", name: "Tedi Ramadhan", age: 57, sex: "M", national_id: "317365**********", policy_number: "AIA-IDN-22-771-559", payor_id: "aia", ward_class: "Private", pre_existing_conditions: '[]' },
+  { id: "p30", mrn: "MRN-734724", name: "Sukma Larasati", age: 42, sex: "F", national_id: "320445**********", policy_number: "0001-6691-118-447", payor_id: "bpjs", ward_class: "Class I", pre_existing_conditions: '[]' },
+  { id: "p31", mrn: "MRN-734739", name: "Hendra Wibowo", age: 63, sex: "M", national_id: "121733**********", policy_number: "PRU-44-552-117", payor_id: "pru", ward_class: "Private", pre_existing_conditions: '[]' },
+  { id: "p32", mrn: "MRN-734751", name: "Anita Permadi", age: 38, sex: "F", national_id: "351049**********", policy_number: "0001-7720-441-118", payor_id: "bpjs", ward_class: "Class II", pre_existing_conditions: '[]' },
+  { id: "p33", mrn: "MRN-734767", name: "Lukman Hakim", age: 49, sex: "M", national_id: "317371**********", policy_number: "0001-8830-447-112", payor_id: "bpjs", ward_class: "Class I", pre_existing_conditions: '[]' },
+  { id: "p34", mrn: "MRN-734781", name: "Wulan Pertiwi", age: 32, sex: "F", national_id: "351055**********", policy_number: "AIA-IDN-22-440-118", payor_id: "aia", ward_class: "Private", pre_existing_conditions: '[]' },
+  { id: "p35", mrn: "MRN-734798", name: "Ardi Saputra", age: 55, sex: "M", national_id: "121738**********", policy_number: "PRU-44-770-228", payor_id: "pru", ward_class: "Private", pre_existing_conditions: '[]' },
+  { id: "p36", mrn: "MRN-734814", name: "Kirana Sari", age: 41, sex: "F", national_id: "320452**********", policy_number: "0001-9920-118-449", payor_id: "bpjs", ward_class: "Class II", pre_existing_conditions: '[]' },
+  { id: "p37", mrn: "MRN-734827", name: "Bima Pratama", age: 37, sex: "M", national_id: "317382**********", policy_number: "AIA-IDN-22-118-664", payor_id: "aia", ward_class: "Private", pre_existing_conditions: '[]' },
+  { id: "p38", mrn: "MRN-734841", name: "Nadia Khairani", age: 29, sex: "F", national_id: "351068**********", policy_number: "0001-2210-441-118", payor_id: "bpjs", ward_class: "Class II", pre_existing_conditions: '[]' },
+  { id: "p39", mrn: "MRN-734856", name: "Galih Saputra", age: 46, sex: "M", national_id: "317391**********", policy_number: "AIA-IDN-22-330-882", payor_id: "aia", ward_class: "Private", pre_existing_conditions: '[]' },
+  { id: "p40", mrn: "MRN-734869", name: "Ratri Hartini", age: 51, sex: "F", national_id: "320461**********", policy_number: "0001-3340-441-228", payor_id: "bpjs", ward_class: "Class I", pre_existing_conditions: '[]' },
+  { id: "p41", mrn: "MRN-734881", name: "Surya Mahendra", age: 39, sex: "M", national_id: "121742**********", policy_number: "PRU-44-118-770", payor_id: "pru", ward_class: "Private", pre_existing_conditions: '[]' },
+  { id: "p42", mrn: "MRN-734895", name: "Indira Kusumawati", age: 33, sex: "F", national_id: "351074**********", policy_number: "0001-4470-118-441", payor_id: "bpjs", ward_class: "Class II", pre_existing_conditions: '[]' },
   // Doc-driven journey patient — same patient across pre-auth, concurrent, post-discharge
-  { id: "p43", mrn: "MRN-734910", name: "Ravi Subramaniam", age: 58, sex: "M", national_id: "317399**********", policy_number: "AIA-IDN-22-008-441", payor_id: "aia", ward_class: "Private" },
+  { id: "p43", mrn: "MRN-734910", name: "Ravi Subramaniam", age: 58, sex: "M", national_id: "317399**********", policy_number: "AIA-IDN-22-008-441", payor_id: "aia", ward_class: "Private", pre_existing_conditions: '[]' },
+  // P5 deep-seed trio — Budi (CABG · GL top-up), Siti (lap chole · clean BPJS), Ravi (TKR · prorate appeal)
+  { id: "p-budi", mrn: "MRN-901001", name: "Budi Santoso", age: 58, sex: "M", national_id: "317301**********", policy_number: "PRU-IDN-23-501-880", payor_id: "pru", ward_class: "Private", pre_existing_conditions: '["HTN (10y)", "T2DM (controlled)", "Dyslipidaemia"]' },
+  { id: "p-siti", mrn: "MRN-901002", name: "Ibu Siti Aminah", age: 47, sex: "F", national_id: "317302**********", policy_number: "0001-9011-002-447", payor_id: "bpjs", ward_class: "Class I", pre_existing_conditions: '[]' },
+  { id: "p-ravi", mrn: "MRN-901003", name: "Ravi Subramaniam", age: 51, sex: "M", national_id: "121702**********", policy_number: "AIA-IDN-23-117-902", payor_id: "aia", ward_class: "Private", pre_existing_conditions: '["OA bilateral knees", "HTN (controlled)"]' },
 ];
 
 // Stage taxonomy: BUILDING · AWAITING_PREAUTH · READY · SUBMITTED · AT_RISK · DENIED · PAID
@@ -634,6 +651,244 @@ const denialCodes = [
   { id: "dc-aia-adm03", payor_id: "aia", bucket: "administrative", code: "ADM-03", phrasing: "Duplikasi klaim — sudah dibayar episode sebelumnya", frequency_pct: 0.04 },
 ];
 
+// ── P5 deep-seed: Budi / Siti / Ravi end-to-end ──────────────────────────
+// Three patients seeded across claims, denials, appeals, GL submissions,
+// uploaded policy docs, and patient-specific email threads. The first two
+// columns mirror the rest of the seed; downstream tables get separate ins()
+// calls so the column-shape contract is preserved per group.
+
+// Three claims — Budi PAID (CABG with top-up), Siti PREAUTH_BUILDING (lap chole),
+// Ravi BUILDING (TKR · denial row drives PD_DENIED in worklist).
+const deepClaims = [
+  // Budi · post-discharge · GL top-up approved · final claim settled
+  { id: "c-budi", patient_id: "p-budi", payor_id: "pru", hospital_id: "h1",
+    drg: "PRIV-CARDIO-CABG-S", dx: "CABG · 4-vessel · with pre-existing T2DM/HTN (I25.10)",
+    los_days: 9, gross_idr: 322_000_000, expected_reimb_idr: 315_000_000, deposit_idr: 12_000_000,
+    // AUTO_CLEARED keeps Budi visible in the post-discharge silo with a "Verdict — Approved" label.
+    status: "AUTO_CLEARED", stage: "AUTO_CLEARED", days_in_stage: 0,
+    submitted_at: "2026-04-28T11:20:00Z", paid_at: "2026-05-04T08:14:00Z", denial_reason: null,
+    acceptance_score: 0.94, predicted_dtp_days: 6, agent_step: null,
+    risk_flag: null, source: "EMR" },
+  // Siti · pre-admission · packet building (BPJS lap chole)
+  { id: "c-siti", patient_id: "p-siti", payor_id: "bpjs", hospital_id: "h2",
+    drg: "INA-CBG K-1-40-I", dx: "Laparoscopic cholecystectomy · symptomatic cholelithiasis (K80.20)",
+    los_days: 2, gross_idr: 22_500_000, expected_reimb_idr: 19_800_000, deposit_idr: 1_500_000,
+    status: "PREAUTH_BUILDING", stage: "PREAUTH_BUILDING", days_in_stage: 1,
+    submitted_at: "2026-05-04T09:30:00Z", paid_at: null, denial_reason: null,
+    acceptance_score: 0.88, predicted_dtp_days: 9, agent_step: "Drafting initial GL packet · BPJS VClaim",
+    risk_flag: null, source: "EMR" },
+  // Ravi · post-discharge · partial denial → appeal in flight (denial row below)
+  { id: "c-ravi", patient_id: "p-ravi", payor_id: "aia", hospital_id: "h1",
+    drg: "PRIV-ORTHO-TKR", dx: "Right TKR · OA bilateral (M17.0)",
+    los_days: 5, gross_idr: 178_500_000, expected_reimb_idr: 142_800_000, deposit_idr: 8_000_000,
+    status: "BUILDING", stage: "BUILDING", days_in_stage: 2,
+    submitted_at: "2026-04-26T10:00:00Z", paid_at: null,
+    denial_reason: "Room rent cap exceeded — Deluxe room IDR 3.2M/day vs plan IDR 2.0M/day. Prorate applied across all line items.",
+    acceptance_score: 0.62, predicted_dtp_days: 14,
+    agent_step: "Drafting appeal letter (medical necessity for higher room: post-op infection risk)",
+    risk_flag: "RoomRentCap", source: "EMR" },
+];
+
+// One denial — Ravi's prorate; this triggers PD_DENIED sub-stage in the aggregator.
+const deepDenials = [
+  { id: "d-ravi", claim_id: "c-ravi", payor_id: "aia", hospital_id: "h1",
+    category: "contractual", reason_code: "CON-04",
+    reason_text: "Limit kamar terlampaui — Deluxe room IDR 3.2M/day melebihi plan tier-3 cap IDR 2.0M/day. Prorate IDR 142.8M ÷ ratio 0.625 = IDR 89.25M.",
+    denied_amount_idr: 53_550_000,
+    denied_at: "2026-04-30T14:22:00Z",
+    appeal_deadline_at: "2026-05-30T23:59:59Z",
+    appeal_status: "DRAFTED", success_probability: 0.68,
+    root_cause_step: "Room class booking · plan tier-3 cap not enforced at admission",
+    recurring_pattern_id: null },
+];
+
+// One appeal draft — Ravi's medical-necessity rebuttal.
+const deepAppealDrafts = [
+  { id: "ad-ravi", denial_id: "d-ravi",
+    letter_md: "Dear AIA Indonesia Adjudication Team,\n\nWe respectfully contest the prorate deduction applied to claim 22-IDN-RAVI per CON-04...\n\n[Justification: Deluxe room was clinically necessary due to post-operative infection-risk profile — patient OA + comorbid HTN. Standard 4-bed ward presents elevated MRSA exposure on TKR cohort per Mayapada infection-control SOP §4.7.]\n\nWe attach: (1) Surgical site infection risk assessment by Dr. Eka Wibowo, (2) Mayapada infection-control protocol, (3) Comparable cases approved historically.\n\nKindly reconsider for full settlement at IDR 142.8M.\n\nRegards,\nMayapada Hospital · RCM",
+    attachments_json: '["surgical_site_infection_risk_assessment.pdf","infection_control_protocol_§4.7.pdf","historical_cases_table.xlsx"]',
+    drafted_at: "2026-05-02T09:30:00Z",
+    submitted_at: null,
+    outcome: null },
+];
+
+// GL submissions — full lifecycle per patient.
+const glSubmissions = [
+  // Budi: initial → top-up → final
+  { id: "gl-budi-1", patient_id: "p-budi", kind: "initial", state: "approved",
+    amount_idr: 270_000_000, drafted_at: "2026-04-18T08:00:00Z",
+    submitted_at: "2026-04-19T09:00:00Z", decided_at: "2026-04-19T13:30:00Z",
+    decision_note: "Initial GL approved · IDR 270M · valid through 2026-04-30" },
+  { id: "gl-budi-2", patient_id: "p-budi", kind: "topup", state: "approved",
+    amount_idr: 55_000_000, drafted_at: "2026-04-22T11:18:00Z",
+    submitted_at: "2026-04-22T11:32:00Z", decided_at: "2026-04-22T13:55:00Z",
+    decision_note: "Top-up approved · intra-op 4th-vessel graft scope expansion" },
+  { id: "gl-budi-3", patient_id: "p-budi", kind: "final", state: "approved",
+    amount_idr: 322_000_000, drafted_at: "2026-04-27T14:00:00Z",
+    submitted_at: "2026-04-28T11:20:00Z", decided_at: "2026-05-04T08:14:00Z",
+    decision_note: "Final claim settled · approved with amendment" },
+  // Siti: initial in flight, final not started
+  { id: "gl-siti-1", patient_id: "p-siti", kind: "initial", state: "submitted",
+    amount_idr: 19_800_000, drafted_at: "2026-05-03T15:00:00Z",
+    submitted_at: "2026-05-04T09:30:00Z", decided_at: null,
+    decision_note: null },
+  { id: "gl-siti-2", patient_id: "p-siti", kind: "final", state: "not_started",
+    amount_idr: null, drafted_at: null, submitted_at: null, decided_at: null, decision_note: null },
+  // Ravi: initial approved, final partial → contesting
+  { id: "gl-ravi-1", patient_id: "p-ravi", kind: "initial", state: "approved",
+    amount_idr: 142_800_000, drafted_at: "2026-04-19T08:00:00Z",
+    submitted_at: "2026-04-19T11:00:00Z", decided_at: "2026-04-19T15:00:00Z",
+    decision_note: "Initial GL approved · IDR 142.8M" },
+  { id: "gl-ravi-2", patient_id: "p-ravi", kind: "final", state: "partial",
+    amount_idr: 89_250_000, drafted_at: "2026-04-25T10:00:00Z",
+    submitted_at: "2026-04-26T10:00:00Z", decided_at: "2026-04-30T14:22:00Z",
+    decision_note: "Partial settlement · CON-04 prorate · IDR 89.25M (vs claimed 142.8M) · contest in progress" },
+];
+
+// Patient-specific email threads (drama beats) — Budi top-up TPA query, Ravi prorate notice.
+const patientThreads = [
+  { id: "t-budi-1", payor_id: "pru", patient_id: "p-budi",
+    subject: "Permohonan Perpanjangan Surat Jaminan (GL Top-Up) — Budi Santoso / GL PRU-2026-00341",
+    sender: "klaim@admedika.co.id",
+    excerpt: "Mohon dilampirkan intraoperative finding note + revised cost estimate untuk justifikasi penambahan IDR 55.000.000…",
+    body: "Yth. Mayapada Hospital,\n\nMohon dilampirkan intraoperative finding note yang ditandatangani DPJP (Dr. Wijaya, SpBTKV) serta revised cost estimate untuk justifikasi penambahan IDR 55.000.000 atas tindakan tambahan vessel graft ke-4. Tanpa kelengkapan tersebut, GL top-up tidak dapat diproses.\n\nSalam,\nAdMedika TPA · Prudential Indonesia",
+    highlight: "intraoperative finding note + revised cost estimate",
+    outcome: "approved_after_topup", learned_rule: "pru-proc-02",
+    ts: "2026-04-22T11:55:00Z" },
+  { id: "t-ravi-1", payor_id: "aia", patient_id: "p-ravi",
+    subject: "Klaim Sebagian — Limit Kamar Terlampaui · Ravi Subramaniam · Claim 22-IDN-RAVI",
+    sender: "claims.id@aia.com",
+    excerpt: "We have applied a prorate deduction at ratio 0.625 for room class exceeding plan tier-3 cap (Deluxe IDR 3.2M/day vs plan IDR 2.0M/day)…",
+    body: "Dear Mayapada Hospital RCM,\n\nClaim 22-IDN-RAVI (PRIV-ORTHO-TKR · Right TKR) adjudicated with adjustment. We have applied a prorate deduction at ratio 0.625 for room class exceeding plan tier-3 cap (Deluxe IDR 3.2M/day vs plan IDR 2.0M/day). Final settlement: IDR 89,250,000.\n\nReconsideration is possible upon receipt of medical-necessity justification for the higher room class.\n\nRegards,\nAIA Indonesia · Claims Adjudication",
+    highlight: "prorate deduction at ratio 0.625 for room class exceeding plan tier-3 cap",
+    outcome: "partial_paid", learned_rule: "aia-fin-01",
+    ts: "2026-04-30T14:30:00Z" },
+];
+
+// Uploaded documents — policy certificates (Mode A trigger) + per-stage paper.
+const deepUploadedDocs = [
+  // Policy certificates — present for Budi + Ravi (Mode A); Siti has none (Mode B).
+  { id: "doc-budi-policy", owner_kind: "patient", owner_id: "p-budi", patient_id: "p-budi",
+    kind: "policy_certificate", filename: "PRUSolusi_Sehat_Tier3_Budi.pdf",
+    source_clinic: "Prudential Indonesia · policy on file",
+    uploaded_by: "RCM Auto", uploaded_at: "2026-04-15T08:00:00Z",
+    pages: 24, ocr_excerpt: "PRUSolusi Sehat Tier 3 · Sum Insured IDR 500M · Room Cap IDR 1.2M/day · ICU Cap IDR 2.4M/day · Co-pay 0% in network · PED waiting 12 months.",
+    extracted_icd: null, extracted_cpt: null, extracted_drg: null,
+    status: "handed_to_packet", sort: 0 },
+  { id: "doc-ravi-policy", owner_kind: "patient", owner_id: "p-ravi", patient_id: "p-ravi",
+    kind: "policy_certificate", filename: "AIA_Premier_HS_Tier3_Ravi.pdf",
+    source_clinic: "AIA Indonesia · policy on file",
+    uploaded_by: "RCM Auto", uploaded_at: "2026-04-10T08:00:00Z",
+    pages: 22, ocr_excerpt: "AIA Premier Hospital & Surgical Tier 3 · Sum Insured IDR 400M · Room Cap IDR 2.0M/day · ICU Cap IDR 4.0M/day · Co-pay 10% out of network · PED waiting 12 months.",
+    extracted_icd: null, extracted_cpt: null, extracted_drg: null,
+    status: "handed_to_packet", sort: 0 },
+
+  // Budi · stage paper (consult → discharge), with intra-op note that drives top-up
+  { id: "doc-budi-consult", owner_kind: "patient", owner_id: "p-budi", patient_id: "p-budi",
+    kind: "consult_note", filename: "consult_cardiothoracic_2026-04-12.pdf",
+    source_clinic: "Mayapada Hospital · CTVS",
+    uploaded_by: "Dr. Wijaya, SpBTKV", uploaded_at: "2026-04-12T10:00:00Z",
+    pages: 3, ocr_excerpt: "58M HTN/T2DM · CCS class III angina · angiogram triple-vessel disease 80%/75%/70% · plan elective CABG.",
+    extracted_icd: "I25.10", extracted_cpt: null, extracted_drg: "PRIV-CARDIO-CABG-S",
+    status: "handed_to_packet", sort: 1 },
+  { id: "doc-budi-labs", owner_kind: "patient", owner_id: "p-budi", patient_id: "p-budi",
+    kind: "lab_result", filename: "preop_labs_panel_2026-04-15.pdf",
+    source_clinic: "Mayapada Hospital · Lab",
+    uploaded_by: "Lab", uploaded_at: "2026-04-15T07:00:00Z",
+    pages: 2, ocr_excerpt: "HbA1c 7.1, eGFR 76, troponin <0.01, INR 1.0, CXR clear. Cleared for surgery.",
+    extracted_icd: null, extracted_cpt: null, extracted_drg: null,
+    status: "handed_to_packet", sort: 2 },
+  { id: "doc-budi-intraop", owner_kind: "patient", owner_id: "p-budi", patient_id: "p-budi",
+    kind: "op_report", filename: "intraop_finding_note_4thvessel.pdf",
+    source_clinic: "Mayapada Hospital · OT-2",
+    uploaded_by: "Dr. Wijaya, SpBTKV", uploaded_at: "2026-04-22T11:10:00Z",
+    pages: 4, ocr_excerpt: "Intra-op identified critically stenosed 4th vessel (PDA) not visible on pre-op angio. Decision to graft additional vessel. CPB time +90 min. Total grafts: LIMA-LAD, SVG-OM1, SVG-RCA, SVG-PDA.",
+    extracted_icd: "I25.10", extracted_cpt: "33533", extracted_drg: "PRIV-CARDIO-CABG-S",
+    status: "handed_to_packet", sort: 3 },
+  { id: "doc-budi-discharge", owner_kind: "patient", owner_id: "p-budi", patient_id: "p-budi",
+    kind: "discharge_summary", filename: "discharge_summary_budi.pdf",
+    source_clinic: "Mayapada Hospital · CTVS",
+    uploaded_by: "Dr. Wijaya, SpBTKV", uploaded_at: "2026-04-27T14:30:00Z",
+    pages: 3, ocr_excerpt: "Discharged day 9 post-CABG. Stable, ambulating, wound clean. Home with statin/aspirin/metoprolol/metformin. F/U 2 weeks.",
+    extracted_icd: "I25.10", extracted_cpt: null, extracted_drg: null,
+    status: "handed_to_packet", sort: 4 },
+  { id: "doc-budi-invoice", owner_kind: "patient", owner_id: "p-budi", patient_id: "p-budi",
+    kind: "invoice", filename: "final_invoice_budi_322M.pdf",
+    source_clinic: "Mayapada Hospital · Billing",
+    uploaded_by: "Billing", uploaded_at: "2026-04-28T10:00:00Z",
+    pages: 2, ocr_excerpt: "Total IDR 322,000,000 · OT IDR 178M · ICU IDR 64M · Drugs/Implants IDR 52M · Room IDR 18M · Other IDR 10M.",
+    extracted_icd: null, extracted_cpt: null, extracted_drg: null,
+    status: "handed_to_packet", sort: 5 },
+
+  // Siti · stage paper (consult + lab + USG, no policy on file)
+  { id: "doc-siti-consult", owner_kind: "patient", owner_id: "p-siti", patient_id: "p-siti",
+    kind: "consult_note", filename: "consult_general_surgery_siti.pdf",
+    source_clinic: "RS Cendana Jakarta · GS",
+    uploaded_by: "Dr. Hapsari, SpB", uploaded_at: "2026-05-02T09:00:00Z",
+    pages: 2, ocr_excerpt: "47F · recurrent biliary colic · USG: gallstones with thickened wall · plan lap chole.",
+    extracted_icd: "K80.20", extracted_cpt: null, extracted_drg: "INA-CBG K-1-40-I",
+    status: "handed_to_packet", sort: 1 },
+  { id: "doc-siti-usg", owner_kind: "patient", owner_id: "p-siti", patient_id: "p-siti",
+    kind: "lab_result", filename: "USG_abdomen_siti.pdf",
+    source_clinic: "RS Cendana Jakarta · Radiology",
+    uploaded_by: "Radiology", uploaded_at: "2026-05-02T11:00:00Z",
+    pages: 1, ocr_excerpt: "USG abdomen: cholelithiasis with multiple stones, GB wall 4mm, no CBD dilation. CBC/LFT WNL.",
+    extracted_icd: "K80.20", extracted_cpt: null, extracted_drg: null,
+    status: "handed_to_packet", sort: 2 },
+  { id: "doc-siti-preauth", owner_kind: "patient", owner_id: "p-siti", patient_id: "p-siti",
+    kind: "preauth_form", filename: "BPJS_VClaim_preauth_siti.pdf",
+    source_clinic: "RS Cendana Jakarta · RCM",
+    uploaded_by: "RCM Auto", uploaded_at: "2026-05-04T09:00:00Z",
+    pages: 1, ocr_excerpt: "BPJS VClaim · SEP 2026-05-04-CDJ-00114 · Class I · INA-CBG K-1-40-I.",
+    extracted_icd: "K80.20", extracted_cpt: null, extracted_drg: "INA-CBG K-1-40-I",
+    status: "handed_to_packet", sort: 3 },
+
+  // Ravi · stage paper + appeal supporting docs
+  { id: "doc-ravi-consult", owner_kind: "patient", owner_id: "p-ravi", patient_id: "p-ravi",
+    kind: "consult_note", filename: "consult_orthopaedics_ravi.pdf",
+    source_clinic: "Mayapada Hospital · Ortho",
+    uploaded_by: "Dr. Eka Wibowo, SpOT", uploaded_at: "2026-04-15T10:00:00Z",
+    pages: 3, ocr_excerpt: "51M · OA bilateral knees grade IV (R worse) · failed conservative · plan right TKR. Comorbid HTN controlled.",
+    extracted_icd: "M17.0", extracted_cpt: null, extracted_drg: "PRIV-ORTHO-TKR",
+    status: "handed_to_packet", sort: 1 },
+  { id: "doc-ravi-opreport", owner_kind: "patient", owner_id: "p-ravi", patient_id: "p-ravi",
+    kind: "op_report", filename: "OT_report_TKR_ravi.pdf",
+    source_clinic: "Mayapada Hospital · OT-1",
+    uploaded_by: "Dr. Eka Wibowo, SpOT", uploaded_at: "2026-04-21T16:00:00Z",
+    pages: 4, ocr_excerpt: "Right TKR · cemented · Zimmer NexGen LPS · tourniquet 62 min · EBL 280mL · uneventful.",
+    extracted_icd: "M17.0", extracted_cpt: "27447", extracted_drg: "PRIV-ORTHO-TKR",
+    status: "handed_to_packet", sort: 2 },
+  { id: "doc-ravi-discharge", owner_kind: "patient", owner_id: "p-ravi", patient_id: "p-ravi",
+    kind: "discharge_summary", filename: "discharge_summary_ravi.pdf",
+    source_clinic: "Mayapada Hospital · Ortho",
+    uploaded_by: "Dr. Eka Wibowo, SpOT", uploaded_at: "2026-04-25T14:00:00Z",
+    pages: 2, ocr_excerpt: "Discharged day 5 post-TKR. Wound clean, ROM 0-95°, ambulating with walker. PT plan 6 weeks.",
+    extracted_icd: "M17.0", extracted_cpt: null, extracted_drg: null,
+    status: "handed_to_packet", sort: 3 },
+  { id: "doc-ravi-invoice", owner_kind: "patient", owner_id: "p-ravi", patient_id: "p-ravi",
+    kind: "invoice", filename: "final_invoice_ravi_178M.pdf",
+    source_clinic: "Mayapada Hospital · Billing",
+    uploaded_by: "Billing", uploaded_at: "2026-04-26T09:00:00Z",
+    pages: 2, ocr_excerpt: "Total IDR 178,500,000 · Implant IDR 92M · OT IDR 38M · Room (Deluxe 5d) IDR 16M · Drugs IDR 18M · Other IDR 14.5M.",
+    extracted_icd: null, extracted_cpt: null, extracted_drg: null,
+    status: "handed_to_packet", sort: 4 },
+  // Appeal supporting docs (kind=other; surface in appeal attachments)
+  { id: "doc-ravi-ssirisk", owner_kind: "patient", owner_id: "p-ravi", patient_id: "p-ravi",
+    kind: "other", filename: "surgical_site_infection_risk_assessment.pdf",
+    source_clinic: "Mayapada Hospital · Infection Control",
+    uploaded_by: "Dr. Eka Wibowo, SpOT", uploaded_at: "2026-05-01T09:00:00Z",
+    pages: 2, ocr_excerpt: "SSI risk assessment · OA + comorbid HTN cohort · Deluxe room recommended to reduce MRSA exposure (4-bed ward MRSA prevalence 6.4% vs Deluxe 0.9%).",
+    extracted_icd: null, extracted_cpt: null, extracted_drg: null,
+    status: "handed_to_packet", sort: 5 },
+  { id: "doc-ravi-icp", owner_kind: "patient", owner_id: "p-ravi", patient_id: "p-ravi",
+    kind: "other", filename: "infection_control_protocol_§4.7.pdf",
+    source_clinic: "Mayapada Hospital · Quality",
+    uploaded_by: "Quality", uploaded_at: "2026-05-01T09:30:00Z",
+    pages: 4, ocr_excerpt: "Mayapada infection-control SOP §4.7 — TKR cohort with comorbidities should be admitted to single-occupancy rooms when feasible.",
+    extracted_icd: null, extracted_cpt: null, extracted_drg: null,
+    status: "handed_to_packet", sort: 6 },
+];
+
 export const SEED_SQL = [
   ins("hospitals", hospitals),
   ins("payors", payors),
@@ -651,4 +906,11 @@ export const SEED_SQL = [
   ins("inpatients", inpatients),
   ins("claims", docDrivenClaims),
   ins("uploaded_docs", uploadedDocs),
+  // P5 deep-seed group — three patients end-to-end.
+  ins("claims", deepClaims),
+  ins("denials", deepDenials),
+  ins("appeal_drafts", deepAppealDrafts),
+  ins("gl_submissions", glSubmissions),
+  ins("email_threads", patientThreads),
+  ins("uploaded_docs", deepUploadedDocs),
 ].join("\n");

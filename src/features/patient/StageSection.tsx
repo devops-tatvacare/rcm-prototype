@@ -62,10 +62,12 @@ export function StageSection({
   content,
   activeStage,
   payorId,
+  patientId,
 }: {
   content: StageContent;
   activeStage: StageKey;
   payorId: string | null;
+  patientId?: string | null;
 }) {
   const status = statusFor(activeStage, content.stage);
   const stageMeta = STAGES.find((s) => s.key === content.stage)!;
@@ -148,7 +150,9 @@ export function StageSection({
         )}
 
         {/* Insurer correspondence (inline) */}
-        {showCorrespondence && payorId && <CorrespondencePanel payorId={payorId} />}
+        {showCorrespondence && payorId && (
+          <CorrespondencePanel payorId={payorId} patientId={patientId ?? null} />
+        )}
       </div>
     </section>
   );

@@ -128,11 +128,11 @@ export function PatientHeader({
           {/* Identity block */}
           <div className="min-w-0">
             <div className="eyebrow">Patient</div>
-            <div className="mt-0.5 flex items-center gap-2">
+            <div className="mt-0.5 flex flex-wrap items-center gap-2">
               <h2 className="truncate font-display text-[22px] tracking-tight text-ink">
                 {patient.name}
               </h2>
-              <PreExistingChips />
+              <PreExistingChips raw={patient.pre_existing_conditions ?? null} />
             </div>
             <div className="mt-0.5 truncate font-mono-tight text-[11px] text-ink-faint">
               {patient.age}y · {patient.sex} · MRN {patient.mrn}
@@ -233,8 +233,30 @@ function SlaBarStub() {
   );
 }
 
-// Empty stub — pre-existing-conditions chips will be wired in P3.2 once the
-// patients table carries this data.
-export function PreExistingChips() {
-  return null;
+// Pre-existing-conditions chips — parses the JSON array string stored on the
+// patients table and renders one champagne chip per condition. Returns null
+// when the patient has no pre-existing conditions.
+export function PreExistingChips({ raw }: { raw: string | null }) {
+  if (!raw) return null;
+  let conditions: string[] = [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) conditions = parsed.filter((x): x is string => typeof x === "string");
+  } catch {
+    return null;
+  }
+  if (conditions.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {conditions.map((c) => (
+        <span
+          key={c}
+          className="inline-flex h-[18px] items-center rounded-full border border-[var(--color-coral)]/30 bg-[var(--color-coral)]/10 px-2 font-mono-tight text-[10px] text-[var(--color-coral)]"
+          title={`Pre-existing · ${c}`}
+        >
+          {c}
+        </span>
+      ))}
+    </div>
+  );
 }
