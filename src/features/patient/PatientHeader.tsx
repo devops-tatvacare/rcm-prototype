@@ -8,6 +8,7 @@ import {
 } from "@/lib/worklistAggregator";
 import type {
   ClaimContextRow,
+  GlSubmissionRow,
   HospitalRow,
   InpatientContextRow,
   PatientRow,
@@ -55,37 +56,68 @@ function toneForSubStage(sub: SubStage | null): "neutral" | "champagne" | "info"
   return "neutral";
 }
 
+type GlState =
+  | "not_started"
+  | "drafting"
+  | "submitted"
+  | "approved"
+  | "rejected"
+  | "partial";
+
 type GlSlot = {
+  kind: "initial" | "topup" | "final";
   label: string;
-  state: "submitted" | "not_started" | "in_progress" | "approved";
+  state: GlState;
 };
 
-const GL_TRIO: GlSlot[] = [
-  { label: "Initial GL", state: "submitted" },
-  { label: "Top-up", state: "not_started" },
-  { label: "Final claim", state: "not_started" },
-];
+const GL_KIND_LABEL: Record<GlSlot["kind"], string> = {
+  initial: "Initial GL",
+  topup: "Top-up",
+  final: "Final claim",
+};
 
-const GL_STATE_LABEL: Record<GlSlot["state"], string> = {
-  submitted: "Submitted",
+const GL_STATE_LABEL: Record<GlState, string> = {
   not_started: "Not started",
-  in_progress: "Building",
+  drafting: "Drafting",
+  submitted: "Submitted",
   approved: "Approved",
+  rejected: "Rejected",
+  partial: "Partial",
 };
+
+// Build the trio from the gl_submissions rows. We always show three pills in
+// a stable order (initial → topup → final). Missing rows render as
+// `not_started` so the patient header has consistent shape across patients.
+function buildGlTrio(rows: GlSubmissionRow[]): GlSlot[] {
+  const byKind = new Map<GlSlot["kind"], GlState>();
+  for (const r of rows) {
+    if (r.kind === "initial" || r.kind === "topup" || r.kind === "final") {
+      byKind.set(r.kind, (r.state as GlState) ?? "not_started");
+    }
+  }
+  return (["initial", "topup", "final"] as const).map((kind) => ({
+    kind,
+    label: GL_KIND_LABEL[kind],
+    state: byKind.get(kind) ?? "not_started",
+  }));
+}
 
 export function PatientHeader({
   patient,
   claim,
   inpatient,
   hospital,
+  glSubmissions,
   onBack,
 }: {
   patient: PatientRow;
   claim: ClaimContextRow | null;
   inpatient: InpatientContextRow | null;
   hospital: HospitalRow | null;
+  glSubmissions: GlSubmissionRow[];
   onBack: () => void;
 }) {
+  const trio = buildGlTrio(glSubmissions);
   const initial = patient.name.trim()[0]?.toUpperCase() ?? "·";
   const drg = claim?.drg ?? inpatient?.drg ?? null;
   const dx = claim?.dx ?? inpatient?.dx ?? null;
@@ -176,11 +208,11 @@ export function PatientHeader({
             </Button>
           </div>
           <div className="flex items-center gap-1.5">
-            {GL_TRIO.map((slot) => (
-              <GlPill key={slot.label} slot={slot} />
+            {trio.map((slot) => (
+              <GlPill key={slot.kind} slot={slot} />
             ))}
           </div>
-          <SlaBarStub />
+          <SlaBar patientId={patient.id} claim={claim} />
         </div>
       </div>
     </div>
@@ -194,12 +226,16 @@ function GlPill({ slot }: { slot: GlSlot }) {
         "inline-flex h-[20px] items-center gap-1 rounded-full border px-2 font-mono-tight text-[10px]",
         slot.state === "not_started" &&
           "border-[var(--color-line-soft)] bg-[var(--color-panel-2)]/40 text-ink-faint",
+        slot.state === "drafting" &&
+          "border-[var(--color-champagne)]/30 bg-[var(--color-champagne)]/12 text-[var(--color-champagne)]",
         slot.state === "submitted" &&
           "border-[var(--color-azure)]/30 bg-[var(--color-azure)]/12 text-[var(--color-azure)]",
-        slot.state === "in_progress" &&
-          "border-[var(--color-champagne)]/30 bg-[var(--color-champagne)]/12 text-[var(--color-champagne)]",
         slot.state === "approved" &&
           "border-[var(--color-emerald)]/30 bg-[var(--color-emerald)]/12 text-[var(--color-emerald)]",
+        slot.state === "partial" &&
+          "border-[var(--color-amber)]/30 bg-[var(--color-amber)]/12 text-[var(--color-amber)]",
+        slot.state === "rejected" &&
+          "border-[var(--color-coral)]/30 bg-[var(--color-coral)]/12 text-[var(--color-coral)]",
       )}
       title={`${slot.label} · ${GL_STATE_LABEL[slot.state]}`}
     >
@@ -207,9 +243,11 @@ function GlPill({ slot }: { slot: GlSlot }) {
         className={cn(
           "h-1 w-1 rounded-full",
           slot.state === "not_started" && "bg-[var(--color-line-soft)]",
+          slot.state === "drafting" && "bg-[var(--color-champagne)]",
           slot.state === "submitted" && "bg-[var(--color-azure)]",
-          slot.state === "in_progress" && "bg-[var(--color-champagne)]",
           slot.state === "approved" && "bg-[var(--color-emerald)]",
+          slot.state === "partial" && "bg-[var(--color-amber)]",
+          slot.state === "rejected" && "bg-[var(--color-coral)]",
         )}
       />
       <span className="text-ink-soft">{slot.label}</span>
@@ -219,16 +257,58 @@ function GlPill({ slot }: { slot: GlSlot }) {
   );
 }
 
-function SlaBarStub() {
+// SLA bar — only renders for the three deeply-seeded patients we have real
+// timeline data for. For everyone else returns null because the bar would
+// otherwise be a fabricated placeholder.
+function SlaBar({
+  patientId,
+  claim,
+}: {
+  patientId: string;
+  claim: ClaimContextRow | null;
+}) {
+  type SlaState = {
+    label: string;
+    tone: "good" | "warn" | "bad";
+    fillPct: number;
+  };
+  let s: SlaState | null = null;
+  // Budi: case settled (PAID / AUTO_CLEARED). Either stage signals a closed
+  // claim where we want to brag about meeting SLA.
+  if (patientId === "p-budi" && (claim?.stage === "PAID" || claim?.stage === "AUTO_CLEARED")) {
+    s = { label: "SLA met · settled in 6d", tone: "good", fillPct: 100 };
+  } else if (patientId === "p-siti") {
+    // Pre-auth in review: 18h elapsed of 48h target.
+    s = { label: "SLA · 18h elapsed of 48h", tone: "warn", fillPct: (18 / 48) * 100 };
+  } else if (patientId === "p-ravi") {
+    // Appeal pending: 26d remaining of 30d.
+    s = { label: "Appeal SLA · 26d remaining of 30d", tone: "good", fillPct: ((30 - 26) / 30) * 100 };
+  }
+  if (!s) return null;
+
+  const tone = s.tone;
   return (
-    <div className="flex items-center gap-2 font-mono-tight text-[10px] text-ink-faint">
+    <div
+      className={cn(
+        "flex items-center gap-2 font-mono-tight text-[10px]",
+        tone === "good" && "text-[var(--color-emerald)]",
+        tone === "warn" && "text-[var(--color-amber)]",
+        tone === "bad" && "text-[var(--color-coral)]",
+      )}
+      title={s.label}
+    >
       <span className="h-1 w-24 overflow-hidden rounded-full bg-[var(--color-line-soft)]/50">
         <span
-          className="block h-full rounded-full bg-[var(--color-champagne)]/40"
-          style={{ width: "42%" }}
+          className={cn(
+            "block h-full rounded-full",
+            tone === "good" && "bg-[var(--color-emerald)]/70",
+            tone === "warn" && "bg-[var(--color-amber)]/70",
+            tone === "bad" && "bg-[var(--color-coral)]/70",
+          )}
+          style={{ width: `${Math.max(2, Math.min(100, s.fillPct))}%` }}
         />
       </span>
-      <span>SLA bar · P3.3</span>
+      <span>{s.label}</span>
     </div>
   );
 }

@@ -53,6 +53,14 @@
   --shadow-lift: 0 1px 0 rgba(255, 255, 255, 0.04), 0 18px 40px -16px rgba(0, 0, 0, 0.55);
   --shadow-glow-emerald: 0 0 0 1px rgba(52, 211, 153, 0.35), 0 12px 30px -8px rgba(52, 211, 153, 0.35);
   --shadow-glow-champagne: 0 0 0 1px rgba(231, 192, 138, 0.4), 0 12px 30px -8px rgba(231, 192, 138, 0.3);
+
+  /* ── Decorative overlay tokens (adapt per theme) ── */
+  --overlay-grain: rgba(255, 255, 255, 0.85);
+  --overlay-shimmer: rgba(231, 192, 138, 0.18);
+  --overlay-hairline-edge: rgba(231, 192, 138, 0.18);
+  --overlay-hairline-mid: rgba(231, 192, 138, 0.55);
+  --overlay-scrollbar: rgba(43, 70, 105, 0.5);
+  --overlay-scrollbar-hover: rgba(43, 70, 105, 0.9);
 }
 
 /* ── Light-mode token overrides ──
@@ -99,6 +107,17 @@
   --shadow-lift: 0 1px 0 rgba(0, 0, 0, 0.02), 0 18px 40px -16px rgba(0, 0, 0, 0.18);
   --shadow-glow-emerald: 0 0 0 1px rgba(52, 211, 153, 0.45), 0 12px 30px -8px rgba(52, 211, 153, 0.30);
   --shadow-glow-champagne: 0 0 0 1px rgba(184, 141, 82, 0.45), 0 12px 30px -8px rgba(184, 141, 82, 0.25);
+
+  /* ── Decorative overlay tokens (light mode) ──
+     Grain switches from white-on-dark to ink-on-light. Hairline alphas
+     intensify so the deepened champagne reads on warm whites. Scrollbar
+     uses a stronger neutral so it doesn't disappear into panels. */
+  --overlay-grain: rgba(26, 31, 44, 0.55);
+  --overlay-shimmer: rgba(184, 141, 82, 0.22);
+  --overlay-hairline-edge: rgba(184, 141, 82, 0.30);
+  --overlay-hairline-mid: rgba(184, 141, 82, 0.75);
+  --overlay-scrollbar: rgba(107, 117, 133, 0.45);
+  --overlay-scrollbar-hover: rgba(107, 117, 133, 0.75);
 }
 
 @layer base {
@@ -161,14 +180,17 @@
 @utility grain-overlay {
   position: absolute; inset: 0; pointer-events: none; opacity: 0.04;
   background-image:
-    repeating-radial-gradient(circle at 2% 4%, #fff 0 1px, transparent 1px 3px),
-    repeating-radial-gradient(circle at 92% 80%, #fff 0 1px, transparent 1px 4px);
+    repeating-radial-gradient(circle at 2% 4%, var(--overlay-grain) 0 1px, transparent 1px 3px),
+    repeating-radial-gradient(circle at 92% 80%, var(--overlay-grain) 0 1px, transparent 1px 4px);
   mix-blend-mode: overlay;
 }
+/* Light mode: overlay blend disappears against warm whites. Switch to
+   multiply so the dark grain dots actually show. */
+:root[data-theme="light"] .grain-overlay { mix-blend-mode: multiply; opacity: 0.06; }
 
 /* ── Hairline rules ── */
 @utility hairline-x {
-  background-image: linear-gradient(to right, transparent 0%, rgba(231,192,138,0.18) 12%, rgba(231,192,138,0.55) 50%, rgba(231,192,138,0.18) 88%, transparent 100%);
+  background-image: linear-gradient(to right, transparent 0%, var(--overlay-hairline-edge) 12%, var(--overlay-hairline-mid) 50%, var(--overlay-hairline-edge) 88%, transparent 100%);
   height: 1px;
 }
 
@@ -211,7 +233,7 @@
   100% { background-position: 200% 0; }
 }
 @utility shimmer {
-  background: linear-gradient(90deg, transparent 0%, rgba(231,192,138,0.18) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, var(--overlay-shimmer) 50%, transparent 100%);
   background-size: 200% 100%;
   animation: shimmer 2.6s linear infinite;
 }
@@ -225,5 +247,5 @@
 /* ── Custom scrollbar ── */
 *::-webkit-scrollbar { width: 10px; height: 10px; }
 *::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb { background: rgba(43, 70, 105, 0.5); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
-*::-webkit-scrollbar-thumb:hover { background: rgba(43, 70, 105, 0.9); border: 2px solid transparent; background-clip: padding-box; }
+*::-webkit-scrollbar-thumb { background: var(--overlay-scrollbar); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+*::-webkit-scrollbar-thumb:hover { background: var(--overlay-scrollbar-hover); border: 2px solid transparent; background-clip: padding-box; }
