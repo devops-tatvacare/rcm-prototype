@@ -184,9 +184,9 @@
     repeating-radial-gradient(circle at 92% 80%, var(--overlay-grain) 0 1px, transparent 1px 4px);
   mix-blend-mode: overlay;
 }
-/* Light mode: overlay blend disappears against warm whites. Switch to
-   multiply so the dark grain dots actually show. */
-:root[data-theme="light"] .grain-overlay { mix-blend-mode: multiply; opacity: 0.06; }
+/* Light mode: hide the grain entirely — dot pattern reads as visible
+   texture/lines on warm-white surfaces. */
+:root[data-theme="light"] .grain-overlay { display: none; }
 
 /* ── Hairline rules ── */
 @utility hairline-x {
