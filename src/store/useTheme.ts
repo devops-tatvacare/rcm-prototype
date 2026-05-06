@@ -75,11 +75,23 @@ export const useTheme = create<ThemeState>((set, get) => ({
  * Apply the persisted theme synchronously, and subscribe to OS theme changes
  * so that "system" mode reacts live. Call this exactly once at module top of
  * main.tsx (before React renders) to avoid a flash of the wrong theme.
+ *
+ * Idempotent: safe to invoke multiple times (e.g. under Vite HMR) — only the
+ * first call attaches the matchMedia listener and syncs store state.
  */
+let initialized = false;
 export function initTheme() {
   if (typeof window === "undefined") return;
+  if (initialized) return;
+  initialized = true;
+
   const mode = readStoredMode();
-  applyToDocument(resolve(mode));
+  const resolved = resolve(mode);
+  applyToDocument(resolved);
+  // Authoritatively sync store state with the just-resolved theme so that
+  // any consumers that imported the store before initTheme() ran see
+  // values consistent with the DOM.
+  useTheme.setState({ mode, resolved });
 
   // React to live OS theme changes whenever mode === "system".
   const mql = window.matchMedia("(prefers-color-scheme: dark)");

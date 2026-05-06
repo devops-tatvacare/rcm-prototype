@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./styles/global.css";
-import { initTheme } from "./lib/theme";
+import { initTheme } from "@/store/useTheme";
 
 // Apply persisted theme before React renders to avoid a flash of wrong theme.
 initTheme();

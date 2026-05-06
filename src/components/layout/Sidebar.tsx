@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 import { LayoutDashboard, Building2, RefreshCw, ListChecks, ChevronLeft, ChevronRight, Monitor, Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { resetDb } from "@/lib/db";
-import { useTheme } from "@/lib/theme";
+import { useTheme } from "@/store/useTheme";
 
 type NavItem = { to: string; label: string; Icon: any };
 type NavGroup = { eyebrow: string; items: NavItem[] };
