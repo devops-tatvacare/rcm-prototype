@@ -13,6 +13,7 @@ import { cn } from "@/lib/cn";
 type Thread = {
   id: string;
   payor_id: string;
+  patient_id: string | null;
   payor_name: string;
   payor_color: string;
   subject: string;
@@ -26,7 +27,13 @@ type Thread = {
 
 type RuleLite = { id: string; description: string };
 
-export function CorrespondencePanel({ payorId }: { payorId: string }) {
+export function CorrespondencePanel({
+  payorId,
+  patientId,
+}: {
+  payorId: string;
+  patientId?: string | null;
+}) {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [rules, setRules] = useState<Record<string, string>>({});
   const [composerOpen, setComposerOpen] = useState(false);
@@ -35,15 +42,32 @@ export function CorrespondencePanel({ payorId }: { payorId: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    query<Thread>(
-      `SELECT t.*, py.name AS payor_name, py.color AS payor_color
-         FROM email_threads t
-         JOIN payors py ON py.id = t.payor_id
-        WHERE t.payor_id = ?
-        ORDER BY t.ts DESC
-        LIMIT 3`,
-      [payorId],
-    ).then(async (rows) => {
+    (async () => {
+      // Prefer patient-specific threads when a patientId is supplied. Fall
+      // back to payor-level threads if the patient has none of their own.
+      let rows: Thread[] = [];
+      if (patientId) {
+        rows = await query<Thread>(
+          `SELECT t.*, py.name AS payor_name, py.color AS payor_color
+             FROM email_threads t
+             JOIN payors py ON py.id = t.payor_id
+            WHERE t.patient_id = ?
+            ORDER BY t.ts DESC
+            LIMIT 3`,
+          [patientId],
+        );
+      }
+      if (rows.length === 0) {
+        rows = await query<Thread>(
+          `SELECT t.*, py.name AS payor_name, py.color AS payor_color
+             FROM email_threads t
+             JOIN payors py ON py.id = t.payor_id
+            WHERE t.payor_id = ? AND (t.patient_id IS NULL OR t.patient_id = '')
+            ORDER BY t.ts DESC
+            LIMIT 3`,
+          [payorId],
+        );
+      }
       if (cancelled) return;
       setThreads(rows);
       const ruleIds = rows
@@ -62,11 +86,11 @@ export function CorrespondencePanel({ payorId }: { payorId: string }) {
       const map: Record<string, string> = {};
       for (const r of ruleRows) map[r.id] = r.description;
       setRules(map);
-    });
+    })();
     return () => {
       cancelled = true;
     };
-  }, [payorId]);
+  }, [payorId, patientId]);
 
   function handleSend() {
     setSentConfirm("Reply queued (mocked).");

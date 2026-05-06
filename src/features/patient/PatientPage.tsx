@@ -19,6 +19,7 @@ export type PatientRow = {
   policy_number: string | null;
   payor_id: string;
   ward_class: string | null;
+  pre_existing_conditions: string | null;
   payor_name: string | null;
   payor_color: string | null;
   payor_kind: string | null;
@@ -187,6 +188,7 @@ export function PatientPage() {
             <StagesPanel
               activeStage={activeStage}
               payorId={patient.payor_id ?? null}
+              patientId={patient.id}
             />
           </section>
 
