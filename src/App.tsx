@@ -7,6 +7,7 @@ import { PayorIntel } from "@/features/payor-intel/PayorIntel";
 import { PayorDetail } from "@/features/payor-intel/PayorDetail";
 import { EvidenceDrawer } from "@/features/payor-intel/EvidenceDrawer";
 import { WorklistPage } from "@/features/worklist/WorklistPage";
+import { PatientPage } from "@/features/patient/PatientPage";
 import { getDb } from "@/lib/db";
 
 export default function App() {
@@ -50,6 +51,7 @@ export default function App() {
               <Route path="/worklist" element={<WorklistPage />} />
               <Route path="/payors" element={<PayorIntel />} />
               <Route path="/payors/:id" element={<PayorDetail />} />
+              <Route path="/patient/:id" element={<PatientPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </motion.div>
