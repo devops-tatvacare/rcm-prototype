@@ -174,7 +174,7 @@ export function PatientPage() {
           <aside className="sticky top-3 self-start">
             <JourneyTimeline
               activeStage={activeStage}
-              onSelectStage={(key) => {
+              onSelectStage={(key: StageKey) => {
                 const el = document.getElementById(`stage-${key}`);
                 if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
               }}
