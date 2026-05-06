@@ -1,18 +1,13 @@
 import { useEffect, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "motion/react";
 import { LayoutGrid, Rows3 } from "lucide-react";
 import { TopBar } from "@/components/layout/TopBar";
-import { Drawer } from "@/components/ui/Drawer";
 import { cn } from "@/lib/cn";
 import { useWorklist } from "@/store/useWorklist";
 import { usePacketBuilder } from "@/store/usePacketBuilder";
-import { useCaseReview } from "@/store/useCaseReview";
 import { useDenials } from "@/store/useDenials";
 import { type PatientItem, type Silo } from "@/lib/worklistAggregator";
-import { ClaimDetail } from "@/features/packet-builder/ClaimDetail";
-import { CaseDetail } from "@/features/case-review/CaseDetail";
-import { AppealDrafter } from "@/features/denials/AppealDrafter";
 import { WorklistFilters } from "./WorklistFilters";
 import { WorklistKanban } from "./WorklistKanban";
 import { WorklistTable } from "./WorklistTable";
@@ -26,17 +21,12 @@ const SILOS: { value: Silo; label: string; sub: string }[] = [
 
 export function WorklistPage() {
   const { items, loaded, silo, viewMode, setSilo, setViewMode, setFilters, setSubStage, clearFilters, load } = useWorklist();
-  const openClaim = usePacketBuilder((s) => s.openClaim);
-  const openInpatient = useCaseReview((s) => s.open);
-  const openDenial = useDenials((s) => s.openDenial);
+  // We still subscribe to the upstream "tick" counters so the worklist
+  // reloads when claims are submitted or appeals drafted from elsewhere
+  // (e.g. inside the patient drilldown stages, in later phases).
   const refreshTick = usePacketBuilder((s) => s.boardRefreshTick);
   const draftTick = useDenials((s) => s.draftTick);
-  const claimDrawerOpen = usePacketBuilder((s) => s.drawerOpen);
-  const closeClaimDrawer = usePacketBuilder((s) => s.closeDrawer);
-  const caseDrawerOpen = useCaseReview((s) => s.drawerOpen);
-  const closeCaseDrawer = useCaseReview((s) => s.close);
-  const denialDrawerOpen = useDenials((s) => s.drawerOpen);
-  const closeDenialDrawer = useDenials((s) => s.closeDrawer);
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Initial load + react to upstream changes (claim submit, draft created).
@@ -62,9 +52,9 @@ export function WorklistPage() {
   }, [searchParams]);
 
   function handleOpen(item: PatientItem) {
-    if (item.open_target.kind === "claim") openClaim(item.open_target.id);
-    else if (item.open_target.kind === "inpatient") openInpatient(item.open_target.id);
-    else openDenial(item.open_target.id);
+    // Drilldown route. The patient_id is pre-computed by the aggregator so
+    // this is a single navigation, no DB round-trip on click.
+    navigate(`/patient/${item.patient_id}`);
   }
 
   function selectSilo(s: Silo) {
@@ -141,16 +131,6 @@ export function WorklistPage() {
         </div>
       </div>
 
-      {/* Drawers — mounted here so any silo can open them */}
-      <Drawer open={claimDrawerOpen} onClose={closeClaimDrawer} width={1400}>
-        <ClaimDetail />
-      </Drawer>
-      <Drawer open={caseDrawerOpen} onClose={closeCaseDrawer} width={1400}>
-        <CaseDetail />
-      </Drawer>
-      <Drawer open={denialDrawerOpen} onClose={closeDenialDrawer} width={1400}>
-        <AppealDrafter />
-      </Drawer>
     </>
   );
 }
