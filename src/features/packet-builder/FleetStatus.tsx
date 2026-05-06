@@ -25,13 +25,13 @@ export function FleetStatus() {
     <div className="flex h-full min-h-0 flex-col gap-3">
       <Panel tone="raised" className="overflow-hidden">
         <PanelHeader
-          eyebrow="TatvaCare agent fleet · all 4 sites"
+          eyebrow="TatvaCare workflow fleet · all 4 sites"
           title="Operating in real time"
           right={<Pill tone="good" dot>All systems green</Pill>}
         />
         <div className="hairline-x mx-5" />
         <div className="grid grid-cols-3 gap-3 p-4">
-          <FleetMetric Icon={Bot} label="Agents online" value="14" sub="across 4 sites" tone="champagne" />
+          <FleetMetric Icon={Bot} label="Workflows online" value="14" sub="across 4 sites" tone="champagne" />
           <FleetMetric Icon={Activity} label="Throughput · 1h" value="62" sub="claims processed" tone="emerald" />
           <FleetMetric Icon={Sparkles} label="Rules fired · 24h" value="187" sub="across 6 rule types" tone="violet" />
         </div>

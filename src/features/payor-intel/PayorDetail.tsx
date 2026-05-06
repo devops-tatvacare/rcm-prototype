@@ -57,14 +57,14 @@ const PROFILES: Record<string, Profile> = {
     slas: "Verifier review 15 wd · payment 15 wd",
   },
   pru: {
-    channel: "AdMedika TPA · Portal + email",
+    channel: "Cashless review desk · Portal + email",
     drgHandling: "Plan-tier benefit caps; INA-CBG informs case-mix where CoB applies",
     cob: "Pays selisih biaya only when patient is BPJS-active.",
     cobNote: "Per KMK 1117/2025",
     slas: "Cashless GL 2-4h elective / 1h emergency · Reimbursement 14 wd from complete file · 60d submission window",
   },
   aia: {
-    channel: "AdMedika TPA · Portal + email",
+    channel: "Cashless review desk · Portal + email",
     drgHandling: "Plan-tier benefit caps; INA-CBG informs case-mix where CoB applies",
     cob: "Pays selisih biaya only when patient is BPJS-active.",
     cobNote: "Per KMK 1117/2025",

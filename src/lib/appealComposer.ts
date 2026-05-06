@@ -72,7 +72,7 @@ function clinicalAppeal(d: DenialDetail, isBpjs: boolean, dateStr: string): Comp
         ``,
         `**Remedy requested.** Reverse denial in full and pay at contracted rate ${fmtIDR(d.denied_amount_idr)}.`,
         ``,
-        `— ${d.hospital_name} TPA Desk · drafted by TatvaCare agent · co-signed by Dr. Wira`,
+        `— ${d.hospital_name} TPA Desk · drafted by TatvaCare RCM workflow · co-signed by Dr. Wira`,
       ].join("\n"),
       attachments: [
         "SYNTAX-Worksheet-signed.pdf",
@@ -98,7 +98,7 @@ function clinicalAppeal(d: DenialDetail, isBpjs: boolean, dateStr: string): Comp
         ``,
         `**Remedy requested.** Reverse denial; pay full claim ${fmtIDR(d.denied_amount_idr)}.`,
         ``,
-        `— ${d.hospital_name} Oncology Desk · drafted by TatvaCare agent · co-signed by attending neuro-oncologist`,
+        `— ${d.hospital_name} Oncology Desk · drafted by TatvaCare RCM workflow · co-signed by attending neuro-oncologist`,
       ].join("\n"),
       attachments: [
         "Stupp-NEJM-2005.pdf",
@@ -129,7 +129,7 @@ function clinicalAppeal(d: DenialDetail, isBpjs: boolean, dateStr: string): Comp
         ``,
         `**Permintaan.** Mohon adjudikasi ulang; nilai klaim ${fmtIDR(d.denied_amount_idr)}.`,
         ``,
-        `— ${d.hospital_name} TPA Desk · drafted by TatvaCare agent`,
+        `— ${d.hospital_name} TPA Desk · drafted by TatvaCare RCM workflow`,
       ].join("\n"),
       attachments: [
         "ED-Notes-Hour-2.pdf",
@@ -155,7 +155,7 @@ function clinicalAppeal(d: DenialDetail, isBpjs: boolean, dateStr: string): Comp
       ``,
       `**Remedy requested.** Reverse denial; pay ${fmtIDR(d.denied_amount_idr)}.`,
       ``,
-      `— ${d.hospital_name} TPA Desk · drafted by TatvaCare agent`,
+      `— ${d.hospital_name} TPA Desk · drafted by TatvaCare RCM workflow`,
     ].join("\n"),
     attachments: [
       "Clinical-Notes.pdf",
@@ -182,7 +182,7 @@ function technicalAppeal(d: DenialDetail, dateStr: string): ComposedAppeal {
         ``,
         `**Remedy requested.** Reverse denial with modifier 59 appended on the resubmission; pay ${fmtIDR(d.denied_amount_idr)}.`,
         ``,
-        `— ${d.hospital_name} HIM Desk · drafted by TatvaCare agent · reviewed by certified coder`,
+        `— ${d.hospital_name} HIM Desk · drafted by TatvaCare RCM workflow · reviewed by certified coder`,
       ].join("\n"),
       attachments: [
         "OT-Record.pdf",
@@ -204,7 +204,7 @@ function technicalAppeal(d: DenialDetail, dateStr: string): ComposedAppeal {
         ``,
         `**Remedy requested.** Re-process with modifier 59; pay ${fmtIDR(d.denied_amount_idr)}.`,
         ``,
-        `— ${d.hospital_name} HIM · drafted by TatvaCare agent`,
+        `— ${d.hospital_name} HIM · drafted by TatvaCare RCM workflow`,
       ].join("\n"),
       attachments: [
         "OT-Record.pdf",
@@ -226,7 +226,7 @@ function technicalAppeal(d: DenialDetail, dateStr: string): ComposedAppeal {
         ``,
         `**Remedy requested.** Reverse the duplicate flag; pay ${fmtIDR(d.denied_amount_idr)}.`,
         ``,
-        `— ${d.hospital_name} TPA Desk · drafted by TatvaCare agent`,
+        `— ${d.hospital_name} TPA Desk · drafted by TatvaCare RCM workflow`,
       ].join("\n"),
       attachments: [
         "Submission-Audit-Log.pdf",
@@ -247,7 +247,7 @@ function technicalAppeal(d: DenialDetail, dateStr: string): ComposedAppeal {
       ``,
       `**Remedy requested.** Re-process; pay ${fmtIDR(d.denied_amount_idr)}.`,
       ``,
-      `— ${d.hospital_name} HIM · drafted by TatvaCare agent`,
+      `— ${d.hospital_name} HIM · drafted by TatvaCare RCM workflow`,
     ].join("\n"),
     attachments: ["Coding-Audit-Trail.pdf", "Coder-Review.pdf"],
   };
@@ -271,7 +271,7 @@ function contractualAppeal(d: DenialDetail, dateStr: string): ComposedAppeal {
         ``,
         `**Remedy requested.** Re-process at contracted in-panel rate; recover variance ${fmtIDR(d.denied_amount_idr)} + retroactive correction on any other affected claims.`,
         ``,
-        `— ${d.hospital_name} Finance · drafted by TatvaCare agent`,
+        `— ${d.hospital_name} Finance · drafted by TatvaCare RCM workflow`,
       ].join("\n"),
       attachments: [
         "Provider-Agreement-Signed.pdf",
@@ -298,7 +298,7 @@ function contractualAppeal(d: DenialDetail, dateStr: string): ComposedAppeal {
         ``,
         `**Remedy requested.** Reverse exclusion; pay ${fmtIDR(d.denied_amount_idr)}.`,
         ``,
-        `— ${d.hospital_name} Surgery Desk · drafted by TatvaCare agent`,
+        `— ${d.hospital_name} Surgery Desk · drafted by TatvaCare RCM workflow`,
       ].join("\n"),
       attachments: [
         "Contract-Clause-4-7.pdf",
@@ -319,7 +319,7 @@ function contractualAppeal(d: DenialDetail, dateStr: string): ComposedAppeal {
       ``,
       `**Remedy requested.** Reverse denial; pay ${fmtIDR(d.denied_amount_idr)}.`,
       ``,
-      `— ${d.hospital_name} TPA Desk · drafted by TatvaCare agent`,
+      `— ${d.hospital_name} TPA Desk · drafted by TatvaCare RCM workflow`,
     ].join("\n"),
     attachments: ["Contract-Excerpt.pdf", "Case-Evidence.pdf"],
   };
@@ -343,7 +343,7 @@ function administrativeAppeal(d: DenialDetail, isBpjs: boolean, _dateStr: string
         ``,
         `**Remedy requested.** Reverse the eligibility-based denial; pay ${fmtIDR(d.denied_amount_idr)}.`,
         ``,
-        `— ${d.hospital_name} TPA Desk · drafted by TatvaCare agent`,
+        `— ${d.hospital_name} TPA Desk · drafted by TatvaCare RCM workflow`,
       ].join("\n"),
       attachments: [
         "Eligibility-API-Log.pdf",
@@ -367,7 +367,7 @@ function administrativeAppeal(d: DenialDetail, isBpjs: boolean, _dateStr: string
       ``,
       `**Remedy requested.** Reverse denial; pay ${fmtIDR(d.denied_amount_idr)}.`,
       ``,
-      `— ${d.hospital_name} TPA Desk · drafted by TatvaCare agent`,
+      `— ${d.hospital_name} TPA Desk · drafted by TatvaCare RCM workflow`,
     ].join("\n"),
     attachments: [
       "PA-Letter.pdf",

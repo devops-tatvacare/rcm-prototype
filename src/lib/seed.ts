@@ -224,12 +224,12 @@ const patients = [
   { id: "p40", mrn: "MRN-734869", name: "Ratri Hartini", age: 51, sex: "F", national_id: "320461**********", policy_number: "0001-3340-441-228", payor_id: "bpjs", ward_class: "Class I", pre_existing_conditions: '[]' },
   { id: "p41", mrn: "MRN-734881", name: "Surya Mahendra", age: 39, sex: "M", national_id: "121742**********", policy_number: "PRU-44-118-770", payor_id: "pru", ward_class: "Private", pre_existing_conditions: '[]' },
   { id: "p42", mrn: "MRN-734895", name: "Indira Kusumawati", age: 33, sex: "F", national_id: "351074**********", policy_number: "0001-4470-118-441", payor_id: "bpjs", ward_class: "Class II", pre_existing_conditions: '[]' },
-  // Doc-driven journey patient — same patient across pre-auth, concurrent, post-discharge
-  { id: "p43", mrn: "MRN-734910", name: "Ravi Subramaniam", age: 58, sex: "M", national_id: "317399**********", policy_number: "AIA-IDN-22-008-441", payor_id: "aia", ward_class: "Private", pre_existing_conditions: '[]' },
-  // P5 deep-seed trio — Budi (CABG · GL top-up), Siti (lap chole · clean BPJS), Ravi (TKR · prorate appeal)
-  { id: "p-budi", mrn: "MRN-901001", name: "Budi Santoso", age: 58, sex: "M", national_id: "317301**********", policy_number: "PRU-IDN-23-501-880", payor_id: "pru", ward_class: "Private", pre_existing_conditions: '["HTN (10y)", "T2DM (controlled)", "Dyslipidaemia"]' },
-  { id: "p-siti", mrn: "MRN-901002", name: "Ibu Siti Aminah", age: 47, sex: "F", national_id: "317302**********", policy_number: "0001-9011-002-447", payor_id: "bpjs", ward_class: "Class I", pre_existing_conditions: '[]' },
-  { id: "p-ravi", mrn: "MRN-901003", name: "Ravi Subramaniam", age: 51, sex: "M", national_id: "121702**********", policy_number: "AIA-IDN-23-117-902", payor_id: "aia", ward_class: "Private", pre_existing_conditions: '["OA bilateral knees", "HTN (controlled)"]' },
+  // Showcase manual-intake patient — sparse context, evidence arrives via uploaded scans
+  { id: "p43", mrn: "MRN-734910", name: "Ayu Lestari", age: 42, sex: "F", national_id: "317399**********", policy_number: "PRU-IDN-22-008-441", payor_id: "pru", ward_class: "Private", pre_existing_conditions: '["Symptomatic fibroid uterus"]' },
+  // P5 deep-seed trio — Budi (BPJS cardiac surgery), Siti (BPJS C-section pre-auth), Ravi (AIA PCI dispute)
+  { id: "p-budi", mrn: "MRN-901001", name: "Budi Santoso", age: 58, sex: "M", national_id: "317301**********", policy_number: "0001-5018-880-221", payor_id: "bpjs", ward_class: "Class I", pre_existing_conditions: '["HTN (10y)", "T2DM (controlled)", "Dyslipidaemia"]' },
+  { id: "p-siti", mrn: "MRN-901002", name: "Ibu Siti Aminah", age: 34, sex: "F", national_id: "317302**********", policy_number: "0001-9011-002-447", payor_id: "bpjs", ward_class: "Class I", pre_existing_conditions: '["Prior C-section scar"]' },
+  { id: "p-ravi", mrn: "MRN-901003", name: "Ravi Subramaniam", age: 51, sex: "M", national_id: "121702**********", policy_number: "AIA-IDN-23-117-902", payor_id: "aia", ward_class: "Private", pre_existing_conditions: '["CAD", "HTN (controlled)"]' },
 ];
 
 // Stage taxonomy: BUILDING · AWAITING_PREAUTH · READY · SUBMITTED · AT_RISK · DENIED · PAID
@@ -296,18 +296,15 @@ const claims = [
   { id: "c28", patient_id: "p28", payor_id: "bpjs", hospital_id: "h2", drg: "INA-CBG O-6-15-I", dx: "Myomectomy · uterine fibroid (D25)", los_days: 4, gross_idr: 24_700_000, expected_reimb_idr: 21_300_000, deposit_idr: 2_000_000, status: "PAID", stage: "PAID", days_in_stage: 0, submitted_at: "2026-04-15T11:00:00Z", paid_at: "2026-04-30T09:00:00Z", denial_reason: null, acceptance_score: 0.86, predicted_dtp_days: 15, agent_step: null, risk_flag: null },
 ];
 
-// ── Ravi Subramaniam (p43) · physical-document journey across all 3 silos ──
-// Inserted separately because they carry the `source` column ('DOC_UPLOAD').
+// ── Ayu Lestari (p43) · sparse-context intake built from uploaded scans ─────
+// Inserted separately because it carries the `source` column ('DOC_UPLOAD').
 const docDrivenClaims = [
-  // Pre-auth being assembled from handwritten Rx, ED note, paper labs (referred from rural GP).
-  { id: "c43", patient_id: "p43", payor_id: "aia", hospital_id: "h1", drg: "PRIV-MEDS-SEPSIS-S", dx: "Severe community-acquired pneumonia · sepsis (J18.9, A41.9)", los_days: 7, gross_idr: 124_000_000, expected_reimb_idr: 110_500_000, deposit_idr: 8_000_000, status: "PREAUTH_BUILDING", stage: "PREAUTH_BUILDING", days_in_stage: 0, submitted_at: null, paid_at: null, denial_reason: null, acceptance_score: 0.74, predicted_dtp_days: 19, agent_step: "Awaiting first document or agent kickoff", risk_flag: null, source: "DOC_UPLOAD" },
-  // Post-discharge — earlier urology episode, now submitted (assembled from physical op notes & pathology)
-  { id: "c44", patient_id: "p43", payor_id: "aia", hospital_id: "h1", drg: "PRIV-UROL-TURP", dx: "Post-TURP · BPH (N40) · prior episode discharged 2026-04-26", los_days: 3, gross_idr: 88_400_000, expected_reimb_idr: 79_200_000, deposit_idr: 6_000_000, status: "SUBMITTED", stage: "SUBMITTED", days_in_stage: 1, submitted_at: "2026-05-04T08:14:00Z", paid_at: null, denial_reason: null, acceptance_score: 0.91, predicted_dtp_days: 17, agent_step: "Acknowledged · adjudicating", risk_flag: null, source: "DOC_UPLOAD" },
+  { id: "c43", patient_id: "p43", payor_id: "pru", hospital_id: "h1", drg: "PRIV-GYN-HYST-S", dx: "Planned laparoscopic hysterectomy · symptomatic fibroid uterus (D25)", los_days: 4, gross_idr: 96_000_000, expected_reimb_idr: 84_000_000, deposit_idr: 10_000_000, status: "PREAUTH_BUILDING", stage: "PREAUTH_BUILDING", days_in_stage: 0, submitted_at: null, paid_at: null, denial_reason: null, acceptance_score: 0.69, predicted_dtp_days: 18, agent_step: "Outside-clinic packet arriving as scanned documents", risk_flag: null, source: "DOC_UPLOAD" },
 ];
 
 // 24 realistic rules across BPJS / Prudential Indonesia / AIA Indonesia.
 // Sourced from: Permenkes 26/2021 & 3/2023, BPJS verifier manual (PERSI 2018),
-// PRUSolusi Sehat brochure, AdMedika cashless docs, AIA-AdMedika TPA,
+// PRUSolusi Sehat brochure, cashless review guidance, AIA TPA workflow,
 // Lockton/OJK SEOJK 7/2025 health-product reform notes.
 // Ordered descending by lift_pct.
 const payorRules = [
@@ -322,8 +319,8 @@ const payorRules = [
   { id: "aia-doc-04", payor_id: "aia", category: "documentation", kind: "evidence", drg_pattern: "PRIV-CARDIO-PCI-*", description: "Attach SYNTAX score worksheet for any single- or multi-vessel PCI claim. Improves first-pass acceptance from 71% to 89% historically.", threshold_value: "SYNTAX worksheet on PCI", source_confidence: "promoted_from_denial", evidence_url: "", evidence_threads: 89, lift_pct: 0.10, added_by: "RR" },
   { id: "bpjs-fin-02", payor_id: "bpjs", category: "financial", kind: "evidence", drg_pattern: "INA-CBG *", description: "Tariff differs by Kelas Rawat I/II/III plus Regional 1–5 per Permenkes 3/2023.", threshold_value: "Kelas I/II/III × Regional 1-5", source_confidence: "extracted", evidence_url: "https://peraturan.bpk.go.id/Details/275518/permenkes-no-3-tahun-2023", evidence_threads: 268, lift_pct: 0.09, added_by: "system" },
   { id: "aia-fin-02", payor_id: "aia", category: "financial", kind: "evidence", drg_pattern: "*", description: "ICU cap typically 2× standard room rate per day; max 30 days/year.", threshold_value: "2× standard / 30d/yr", source_confidence: "industry_typical", evidence_url: "", evidence_threads: 64, lift_pct: 0.09, added_by: "system" },
-  { id: "pru-doc-01", payor_id: "pru", category: "documentation", kind: "documentation", drg_pattern: "*", description: "Initial Medical Report (Laporan Medis Awal) must reach AdMedika before GL issuance — must include diagnosis, planned treatment, estimated LOS.", threshold_value: "LMA pre-GL mandatory", source_confidence: "extracted", evidence_url: "https://www.allianz.co.id/content/dam/onemarketing/azli/wwwallianzcoid/layanan/klaim/klaim-asuransi-kesehatan/V1-5-FAQ-Prosedur-Cashless.pdf", evidence_threads: 134, lift_pct: 0.09, added_by: "system" },
-  { id: "aia-doc-01", payor_id: "aia", category: "documentation", kind: "documentation", drg_pattern: "*", description: "LMA from hospital to AIA-AdMedika is the trigger for GL — without LMA, no GL issued.", threshold_value: "LMA mandatory pre-GL", source_confidence: "extracted", evidence_url: "http://www.aia-financial.co.id/id/help-support/TPA.html", evidence_threads: 128, lift_pct: 0.09, added_by: "system" },
+  { id: "pru-doc-01", payor_id: "pru", category: "documentation", kind: "documentation", drg_pattern: "*", description: "Initial Medical Report (Laporan Medis Awal) must reach the cashless review desk before GL issuance — must include diagnosis, planned treatment, estimated LOS.", threshold_value: "LMA pre-GL mandatory", source_confidence: "extracted", evidence_url: "https://www.allianz.co.id/content/dam/onemarketing/azli/wwwallianzcoid/layanan/klaim/klaim-asuransi-kesehatan/V1-5-FAQ-Prosedur-Cashless.pdf", evidence_threads: 134, lift_pct: 0.09, added_by: "system" },
+  { id: "aia-doc-01", payor_id: "aia", category: "documentation", kind: "documentation", drg_pattern: "*", description: "LMA from hospital is the trigger for GL issuance — without it, no GL is released.", threshold_value: "LMA mandatory pre-GL", source_confidence: "extracted", evidence_url: "http://www.aia-financial.co.id/id/help-support/TPA.html", evidence_threads: 128, lift_pct: 0.09, added_by: "system" },
   { id: "bpjs-doc-01", payor_id: "bpjs", category: "documentation", kind: "format", drg_pattern: "*", description: "SEP must be issued and printed within 3×24h of admission; otherwise claim rejected on receipt.", threshold_value: "3×24h post-admission", source_confidence: "industry_typical", evidence_url: "https://www.persi.or.id/wp-content/uploads/2018/03/panduan_verifikasi_inacbg.pdf", evidence_threads: 312, lift_pct: 0.08, added_by: "system" },
   { id: "bpjs-proc-02", payor_id: "bpjs", category: "process", kind: "pre-auth", drg_pattern: "INA-CBG *", description: "Re-admission with same diagnosis < 7 days post-discharge bundled as one episode (single INA-CBG payment).", threshold_value: "<7d same-dx bundle", source_confidence: "extracted", evidence_url: "https://www.persi.or.id/wp-content/uploads/2018/03/panduan_verifikasi_inacbg.pdf", evidence_threads: 156, lift_pct: 0.08, added_by: "system" },
   { id: "bpjs-doc-03", payor_id: "bpjs", category: "documentation", kind: "format", drg_pattern: "INA-CBG *", description: "Diagnosis coding via ICD-10 (2010); procedures via ICD-9-CM (2010) per Permenkes 26/2021.", threshold_value: "ICD-10 2010 / ICD-9-CM 2010", source_confidence: "extracted", evidence_url: "https://manuver.tireg7.net/wp-content/uploads/2022/08/Permenkes-26-Tahun-2021-PEDOMAN-INDONESIAN-CASE-BASE-GROUPS-INA-CBG.pdf", evidence_threads: 224, lift_pct: 0.08, added_by: "system" },
@@ -334,8 +331,8 @@ const payorRules = [
   { id: "pru-doc-02", payor_id: "pru", category: "documentation", kind: "documentation", drg_pattern: "*", description: "Reimbursement claims need original kuitansi + perincian biaya + resume medis + KTP/KK + bank details.", threshold_value: "5-doc reimbursement bundle", source_confidence: "extracted", evidence_url: "https://www.prudential.co.id/id/claims-support/claim/klaim-rawat-inap/", evidence_threads: 96, lift_pct: 0.07, added_by: "system" },
   { id: "bpjs-proc-01", payor_id: "bpjs", category: "process", kind: "pre-auth", drg_pattern: "INA-CBG *", description: "Hospital must submit claim batch monthly via VClaim/E-Klaim within 6 months from discharge; late filings stamped 'kadaluarsa' and rejected.", threshold_value: "monthly batch / 6mo cap", source_confidence: "industry_typical", evidence_url: "", evidence_threads: 88, lift_pct: 0.06, added_by: "system" },
   { id: "bpjs-doc-02", payor_id: "bpjs", category: "documentation", kind: "documentation", drg_pattern: "*", description: "Resume Medis must be signed by DPJP — unsigned resumes returned as 'berkas tidak lengkap'.", threshold_value: "DPJP signature required", source_confidence: "industry_typical", evidence_url: "", evidence_threads: 76, lift_pct: 0.06, added_by: "system" },
-  { id: "pru-proc-01", payor_id: "pru", category: "process", kind: "pre-auth", drg_pattern: "*", description: "Cashless GL request via AdMedika; SLA 2-4h elective, 1h emergency.", threshold_value: "2-4h elective / 1h emergency", source_confidence: "industry_typical", evidence_url: "", evidence_threads: 54, lift_pct: 0.05, added_by: "system" },
-  { id: "aia-proc-01", payor_id: "aia", category: "process", kind: "pre-auth", drg_pattern: "*", description: "Pre-auth via AIA-AdMedika TPA; SLA 2-4h elective / 1h emergency.", threshold_value: "2-4h elective / 1h emergency", source_confidence: "industry_typical", evidence_url: "", evidence_threads: 48, lift_pct: 0.05, added_by: "system" },
+  { id: "pru-proc-01", payor_id: "pru", category: "process", kind: "pre-auth", drg_pattern: "*", description: "Cashless GL request routed through the payor review desk; SLA 2-4h elective, 1h emergency.", threshold_value: "2-4h elective / 1h emergency", source_confidence: "industry_typical", evidence_url: "", evidence_threads: 54, lift_pct: 0.05, added_by: "system" },
+  { id: "aia-proc-01", payor_id: "aia", category: "process", kind: "pre-auth", drg_pattern: "*", description: "Pre-auth routed through the payor review desk; SLA 2-4h elective / 1h emergency.", threshold_value: "2-4h elective / 1h emergency", source_confidence: "industry_typical", evidence_url: "", evidence_threads: 48, lift_pct: 0.05, added_by: "system" },
   { id: "aia-doc-02", payor_id: "aia", category: "documentation", kind: "documentation", drg_pattern: "*", description: "Reimbursement requires original receipts + perincian + resume medis + lab/radiology reports supporting diagnosis.", threshold_value: "lab/radiology corroborating", source_confidence: "industry_typical", evidence_url: "", evidence_threads: 52, lift_pct: 0.05, added_by: "system" },
   { id: "aia-proc-03", payor_id: "aia", category: "process", kind: "pre-auth", drg_pattern: "*", description: "Reimbursement submission within 60 days of discharge; processing TAT 14 working days.", threshold_value: "60d submit / 14wd decide", source_confidence: "industry_typical", evidence_url: "", evidence_threads: 44, lift_pct: 0.04, added_by: "system" },
 ];
@@ -419,30 +416,30 @@ const threads = [
     highlight: "lacks the SYNTAX score worksheet",
     outcome: "denied", learned_rule: "aia-doc-04", ts: "2026-03-12T09:33:00Z" },
 
-  // ── Prudential / AdMedika TPA threads ──────────────────────────────────
-  { id: "t-pru-01", payor_id: "pru", subject: "Permintaan Kelengkapan Berkas Klaim — Joko Mulyadi / GL PRU-2025-44871", sender: "klaim@admedika.co.id",
+  // ── Prudential cashless threads ─────────────────────────────────────────
+  { id: "t-pru-01", payor_id: "pru", subject: "Permintaan Kelengkapan Berkas Klaim — Joko Mulyadi / GL PRU-2025-44871", sender: "claims@prudential.co.id",
     excerpt: "…mohon dilengkapi resume medis yang ditandatangani oleh DPJP. Berkas tidak dapat diproses tanpa kelengkapan tersebut…",
-    body: "Yth. Tim TPA RS Cendana Jakarta,\n\nMenindaklanjuti pengajuan klaim atas nama Bp. Joko Mulyadi (Polis PRU-44-998-122, GL PRU-2025-44871), kami menemukan bahwa resume medis yang dilampirkan belum memuat tanda tangan DPJP. Mohon dilengkapi resume medis yang ditandatangani oleh DPJP. Berkas tidak dapat diproses tanpa kelengkapan tersebut.\n\nMohon resubmisi dalam 7 hari kerja. Status klaim akan kami tahan sementara di antrian incomplete.\n\nHormat kami,\nTim Klaim AdMedika · atas nama Prudential Indonesia",
+    body: "Yth. Tim TPA RS Cendana Jakarta,\n\nMenindaklanjuti pengajuan klaim atas nama Bp. Joko Mulyadi (Polis PRU-44-998-122, GL PRU-2025-44871), kami menemukan bahwa resume medis yang dilampirkan belum memuat tanda tangan DPJP. Mohon dilengkapi resume medis yang ditandatangani oleh DPJP. Berkas tidak dapat diproses tanpa kelengkapan tersebut.\n\nMohon resubmisi dalam 7 hari kerja. Status klaim akan kami tahan sementara di antrian incomplete.\n\nHormat kami,\nTim Klaim Prudential Indonesia",
     highlight: "resume medis yang ditandatangani oleh DPJP",
     outcome: "denied_resubmitted_won", learned_rule: "pru-doc-01", ts: "2026-04-14T10:24:00Z" },
-  { id: "t-pru-02", payor_id: "pru", subject: "Permohonan Perpanjangan Surat Jaminan (GL Top-Up) — Disetujui", sender: "klaim@admedika.co.id",
+  { id: "t-pru-02", payor_id: "pru", subject: "Permohonan Perpanjangan Surat Jaminan (GL Top-Up) — Disetujui", sender: "claims@prudential.co.id",
     excerpt: "…amendment GL disetujui untuk perluasan tindakan intra-op (laparoskopi → laparotomi konversi). Plafon tambahan IDR 28.5 juta…",
-    body: "Yth. Tim TPA RS Cendana Surabaya,\n\nKami mengkonfirmasi bahwa permohonan perpanjangan Surat Jaminan (GL Top-Up) untuk Bp. Wahyu Santoso (Polis PRU-44-991-770) telah disetujui. Amendment GL disetujui untuk perluasan tindakan intra-op (laparoskopi → laparotomi konversi). Plafon tambahan IDR 28.5 juta atas dasar Laporan Medis Lanjutan tertanggal 2026-04-21.\n\nLaporan operasi final dan resume medis dapat dikirimkan setelah pasien pulang.\n\nHormat kami,\nTim Pre-auth AdMedika · atas nama Prudential Indonesia",
+    body: "Yth. Tim TPA RS Cendana Surabaya,\n\nKami mengkonfirmasi bahwa permohonan perpanjangan Surat Jaminan (GL Top-Up) untuk Bp. Wahyu Santoso (Polis PRU-44-991-770) telah disetujui. Amendment GL disetujui untuk perluasan tindakan intra-op (laparoskopi → laparotomi konversi). Plafon tambahan IDR 28.5 juta atas dasar Laporan Medis Lanjutan tertanggal 2026-04-21.\n\nLaporan operasi final dan resume medis dapat dikirimkan setelah pasien pulang.\n\nHormat kami,\nTim Pre-auth Prudential Indonesia",
     highlight: "amendment GL disetujui untuk perluasan tindakan intra-op",
     outcome: "approved_after_topup", learned_rule: "pru-proc-02", ts: "2026-04-22T14:08:00Z" },
-  { id: "t-pru-03", payor_id: "pru", subject: "Klaim Sebagian — Limit Kamar Terlampaui", sender: "klaim@admedika.co.id",
+  { id: "t-pru-03", payor_id: "pru", subject: "Klaim Sebagian — Limit Kamar Terlampaui", sender: "claims@prudential.co.id",
     excerpt: "…pasien dirawat di kamar Deluxe (IDR 2.4 juta/hari) sementara plafon polis adalah Standard (IDR 1.2 juta/hari). Prorate diterapkan ratio 0.5…",
-    body: "Yth. Tim TPA RS Cendana Jakarta,\n\nKlaim atas nama Bp. Faisal Rahman (Polis PRU-44-330-119) telah diadjudikasi sebagian. Pasien dirawat di kamar Deluxe (IDR 2.4 juta/hari) sementara plafon polis adalah Standard (IDR 1.2 juta/hari). Prorate diterapkan ratio 0.5 pada seluruh tagihan eligible (kamar, dokter, obat, lab) sesuai ketentuan polis pasal 8.3.\n\nNet pembayaran: IDR 79.4 juta dari IDR 158.8 juta tagihan. Selisih menjadi tanggungan pasien.\n\nHormat kami,\nTim Adjudikasi AdMedika · atas nama Prudential Indonesia",
+    body: "Yth. Tim TPA RS Cendana Jakarta,\n\nKlaim atas nama Bp. Faisal Rahman (Polis PRU-44-330-119) telah diadjudikasi sebagian. Pasien dirawat di kamar Deluxe (IDR 2.4 juta/hari) sementara plafon polis adalah Standard (IDR 1.2 juta/hari). Prorate diterapkan ratio 0.5 pada seluruh tagihan eligible (kamar, dokter, obat, lab) sesuai ketentuan polis pasal 8.3.\n\nNet pembayaran: IDR 79.4 juta dari IDR 158.8 juta tagihan. Selisih menjadi tanggungan pasien.\n\nHormat kami,\nTim Adjudikasi Prudential Indonesia",
     highlight: "Prorate diterapkan ratio 0.5 pada seluruh tagihan eligible",
     outcome: "partial_paid", learned_rule: "pru-fin-01", ts: "2026-04-08T11:42:00Z" },
-  { id: "t-pru-04", payor_id: "pru", subject: "Klaim Disetujui — Reimbursement", sender: "klaim@admedika.co.id",
+  { id: "t-pru-04", payor_id: "pru", subject: "Klaim Disetujui — Reimbursement", sender: "claims@prudential.co.id",
     excerpt: "…berkas reimbursement diterima lengkap 2026-04-05. TAT 14 hari kerja terpenuhi. Pembayaran ditransfer ke rekening tertanggal 2026-04-19…",
-    body: "Yth. Tim TPA RS Cendana Bandung,\n\nKlaim reimbursement atas nama Bp. Bagus Pradana (Polis PRU-44-228-117) telah disetujui penuh. Berkas reimbursement diterima lengkap 2026-04-05. TAT 14 hari kerja terpenuhi. Pembayaran ditransfer ke rekening tertanggal 2026-04-19 sebesar IDR 152.3 juta.\n\nKami berterima kasih atas kelengkapan berkas (kuitansi asli, perincian biaya, resume medis bertanda DPJP, KTP/KK, dan rekening bank) yang dilampirkan sejak pengajuan awal.\n\nHormat kami,\nTim Adjudikasi AdMedika · atas nama Prudential Indonesia",
+    body: "Yth. Tim TPA RS Cendana Bandung,\n\nKlaim reimbursement atas nama Bp. Bagus Pradana (Polis PRU-44-228-117) telah disetujui penuh. Berkas reimbursement diterima lengkap 2026-04-05. TAT 14 hari kerja terpenuhi. Pembayaran ditransfer ke rekening tertanggal 2026-04-19 sebesar IDR 152.3 juta.\n\nKami berterima kasih atas kelengkapan berkas (kuitansi asli, perincian biaya, resume medis bertanda DPJP, KTP/KK, dan rekening bank) yang dilampirkan sejak pengajuan awal.\n\nHormat kami,\nTim Adjudikasi Prudential Indonesia",
     highlight: "TAT 14 hari kerja terpenuhi",
     outcome: "approved", learned_rule: "pru-proc-03", ts: "2026-04-19T15:33:00Z" },
-  { id: "t-pru-05", payor_id: "pru", subject: "Pengingat — Batas Waktu Pengajuan Klaim", sender: "klaim@admedika.co.id",
+  { id: "t-pru-05", payor_id: "pru", subject: "Pengingat — Batas Waktu Pengajuan Klaim", sender: "claims@prudential.co.id",
     excerpt: "…tanggal pulang pasien 2026-01-28 dan pengajuan baru diterima 2026-03-30 (61 hari). Klaim ditolak karena melewati batas 60 hari…",
-    body: "Yth. Tim TPA RS Cendana Medan,\n\nMohon diperhatikan bahwa pengajuan klaim atas nama Bp. Hendra Wibowo (Polis PRU-44-552-117) telah kami terima di luar batas waktu yang ditentukan. Tanggal pulang pasien 2026-01-28 dan pengajuan baru diterima 2026-03-30 (61 hari). Klaim ditolak karena melewati batas 60 hari sebagaimana diatur pasal 11.2 polis.\n\nApabila terdapat keadaan khusus (force majeure / sistem downtime), mohon disertakan dokumentasi pendukung dalam pengajuan banding.\n\nHormat kami,\nTim Klaim AdMedika · atas nama Prudential Indonesia",
+    body: "Yth. Tim TPA RS Cendana Medan,\n\nMohon diperhatikan bahwa pengajuan klaim atas nama Bp. Hendra Wibowo (Polis PRU-44-552-117) telah kami terima di luar batas waktu yang ditentukan. Tanggal pulang pasien 2026-01-28 dan pengajuan baru diterima 2026-03-30 (61 hari). Klaim ditolak karena melewati batas 60 hari sebagaimana diatur pasal 11.2 polis.\n\nApabila terdapat keadaan khusus (force majeure / sistem downtime), mohon disertakan dokumentasi pendukung dalam pengajuan banding.\n\nHormat kami,\nTim Klaim Prudential Indonesia",
     highlight: "Klaim ditolak karena melewati batas 60 hari",
     outcome: "denied", learned_rule: "pru-proc-03", ts: "2026-03-30T09:15:00Z" },
 ];
@@ -501,7 +498,7 @@ const denials = [
 
 // ── Appeal drafts (Module E) — drafted letters for some denials ────────────
 const appealDrafts = [
-  { id: "ad1", denial_id: "d1", letter_md: "**To:** Prudential Indonesia · Claims Adjudication\n**Re:** Claim 2026-04-08/c4 · Pre-auth implant model substitution\n\n**Background.** On 2026-04-08, Mr. Joko Mulyadi (MRN-734341, Policy PRU-44-998-122) underwent right total knee arthroplasty at Cendana Jakarta. Pre-auth letter PA-66102 dated 2026-04-04 approved the procedure with implant model **Smith+Nephew Genesis II PS**. Intraoperative findings required substitution to **Genesis II CR** (lot 70-9912) due to ligament integrity confirmed only after exposure.\n\n**Argument.** Under Prudential Coverage Schedule §7.3, implant substitution within the same manufacturer family for clinical indication is a covered event, provided the substitution is documented in the operative note and an addendum is filed within 14 days. Both conditions are satisfied. The operative note (attached) states: *'Genesis II PS unsuitable due to PCL competence; CR variant placed.'* Addendum filed 2026-04-09 (3 days post-op).\n\n**Remedy requested.** Reverse denial in full and pay at contracted rate IDR 168,500,000.\n\n**Authoritative basis.** ASIPS-IPS Indonesia 2024 Position Statement on Intraoperative Implant Decision-Making.\n\n— Cendana Jakarta TPA Desk · drafted by TatvaCare agent · reviewed by Dr. Andi Permadi", attachments_json: "[\"OT-record-c4.pdf\",\"Implant-addendum-2026-04-09.pdf\",\"Coverage-Schedule-7-3.pdf\",\"ASIPS-IPS-2024-stmt.pdf\"]", drafted_at: "2026-05-03T08:42:00Z", submitted_at: null, outcome: null },
+  { id: "ad1", denial_id: "d1", letter_md: "**To:** Prudential Indonesia · Claims Adjudication\n**Re:** Claim 2026-04-08/c4 · Pre-auth implant model substitution\n\n**Background.** On 2026-04-08, Mr. Joko Mulyadi (MRN-734341, Policy PRU-44-998-122) underwent right total knee arthroplasty at Cendana Jakarta. Pre-auth letter PA-66102 dated 2026-04-04 approved the procedure with implant model **Smith+Nephew Genesis II PS**. Intraoperative findings required substitution to **Genesis II CR** (lot 70-9912) due to ligament integrity confirmed only after exposure.\n\n**Argument.** Under Prudential Coverage Schedule §7.3, implant substitution within the same manufacturer family for clinical indication is a covered event, provided the substitution is documented in the operative note and an addendum is filed within 14 days. Both conditions are satisfied. The operative note (attached) states: *'Genesis II PS unsuitable due to PCL competence; CR variant placed.'* Addendum filed 2026-04-09 (3 days post-op).\n\n**Remedy requested.** Reverse denial in full and pay at contracted rate IDR 168,500,000.\n\n**Authoritative basis.** ASIPS-IPS Indonesia 2024 Position Statement on Intraoperative Implant Decision-Making.\n\n— Cendana Jakarta TPA Desk · drafted by TatvaCare RCM workflow · reviewed by Dr. Andi Permadi", attachments_json: "[\"OT-record-c4.pdf\",\"Implant-addendum-2026-04-09.pdf\",\"Coverage-Schedule-7-3.pdf\",\"ASIPS-IPS-2024-stmt.pdf\"]", drafted_at: "2026-05-03T08:42:00Z", submitted_at: null, outcome: null },
   { id: "ad2", denial_id: "d2", letter_md: "**To:** Prudential Indonesia\n**Re:** Claim 2026-04-30/c19 · Bilateral staged TKR · Pre-auth not on file\n\n**Background.** Mrs. Faisal's bilateral staged TKR was authorized as a single course under PA-66318 (2026-03-12). The pre-auth letter explicitly references *'staged bilateral, both knees, 60-day interval acceptable.'*\n\n**Argument.** The claim was rejected on the grounds that the second knee lacked its own PA. This contradicts the PA letter language. We attach the original PA, the operative note for both procedures, and the contract appendix §4.1 defining 'staged bilateral' as a single authorization event.\n\n**Remedy requested.** Reverse denial; pay second-stage at contracted rate IDR 142,700,000.", attachments_json: "[\"PA-66318.pdf\",\"OT-stage-1.pdf\",\"OT-stage-2.pdf\",\"Contract-appendix-4-1.pdf\"]", drafted_at: "2026-05-03T09:11:00Z", submitted_at: null, outcome: null },
   { id: "ad3", denial_id: "d3", letter_md: "**To:** BPJS Kesehatan · Klaim Adjudikasi\n**Re:** Klaim 2026-05-02/c16 · TAH adenomyosis\n\n**Latar.** Ny. Citra Maharani menjalani TAH untuk adenomiosis derajat berat (G3 Mansell). Klaim ditolak dengan alasan *'medical necessity not established'*.\n\n**Bukti yang dilampirkan:**\n- Riwayat 8 bulan terapi hormonal (medroxyprogesterone, dienogest) tanpa respon — catatan klinik 2025-09-12 hingga 2026-04-22.\n- Kuesioner kualitas hidup pre-operasi: skor SF-12 fisik 28, mental 31 (signifikan terganggu).\n- USG transvaginal 2026-04-15: dinding uterus 38mm, vaskularisasi tinggi.\n- MRI pelvis 2026-04-26: konfirmasi adenomiosis difus.\n\n**Argumen.** Per pedoman PERKUMI 2024 §3.2, kegagalan terapi konservatif minimal 6 bulan + bukti pencitraan = indikasi histerektomi.\n\n**Permintaan.** Mohon dilakukan re-adjudikasi dan klaim disetujui penuh sebesar IDR 35,200,000.", attachments_json: "[\"Hormonal-Tx-Records.pdf\",\"SF-12-Pre-Op.pdf\",\"USG-2026-04-15.pdf\",\"MRI-2026-04-26.pdf\",\"PERKUMI-2024-Guideline.pdf\"]", drafted_at: "2026-05-03T10:04:00Z", submitted_at: null, outcome: null },
   { id: "ad4", denial_id: "d10", letter_md: "**To:** BPJS Kesehatan · Klaim Adjudikasi\n**Re:** Klaim 2026-05-01/c12 · Mioma uteri myomectomy\n\n**Latar.** Ny. Lestari Dewi menjalani mioma uteri myomectomy (D25) di Cendana Surabaya 2026-04-30. Klaim ditolak karena *'pre-op pelvic MRI tidak terlampir'* — namun MRI memang dilakukan dan tersedia di RIS hospital.\n\n**Argumen.** MRI pelvis dilakukan 2026-04-22 (laporan terlampir). Lampiran tidak ditambahkan ke berkas pengajuan asli karena kekeliruan rule-pattern matcher pada Builder agent (sudah diperbaiki via push-back ke rule library).\n\n**Permintaan.** Mohon klaim diadjudikasi ulang dengan MRI sebagai lampiran tambahan; nilai klaim IDR 26,800,000.", attachments_json: "[\"MRI-Pelvis-2026-04-22.pdf\",\"Klaim-Asli-c12.pdf\"]", drafted_at: "2026-05-03T10:31:00Z", submitted_at: null, outcome: null },
@@ -516,7 +513,7 @@ const clearances = [
   // Cardiac PCI — cleared but GOP submitted not yet approved
   { id: "fc2", patient_id: "p2", payor_id: "aia", hospital_id: "h1", status: "CONDITIONAL", drg: "PRIV-CARDIO-PCI-S", dx: "Single-vessel PCI · NSTEMI (I21.4)", scheduled_admission_at: "2026-05-03T07:30:00Z", los_predicted: 2.8, los_ci_low: 2.0, los_ci_high: 4.1, episode_cost_idr: 142_300_000, expected_reimb_idr: 128_700_000, patient_liability_idr: 13_600_000, deposit_required_idr: 8_000_000, deposit_collected_idr: 8_000_000, bad_debt_risk_tier: "LOW", payment_mode: "CASHLESS_INSURED", gop_status: "SUBMITTED", gop_letter_md: null, consent_status: "SIGNED", consent_signed_at: "2026-05-03T06:55:00Z", cost_breakdown_json: "{\"room\":18400000,\"procedures\":68900000,\"drugs\":12100000,\"implants\":34800000,\"labs\":4500000,\"other\":3600000}" },
   // Walk-up appendectomy — pending GOP
-  { id: "fc3", patient_id: "p5", payor_id: "bpjs", hospital_id: "h1", status: "PENDING", drg: "INA-CBG K-1-15-II", dx: "Laparoscopic appendectomy · acute (K35.8)", scheduled_admission_at: "2026-05-03T08:30:00Z", los_predicted: 2.1, los_ci_low: 1.5, los_ci_high: 3.0, episode_cost_idr: 18_700_000, expected_reimb_idr: 16_200_000, patient_liability_idr: 2_500_000, deposit_required_idr: 1_500_000, deposit_collected_idr: 0, bad_debt_risk_tier: "LOW", payment_mode: "CASHLESS_INSURED", gop_status: "DRAFTED", gop_letter_md: "**To:** BPJS Kesehatan · Klaim Adjudikasi\n**Re:** Pre-auth/GOP request · MRN-734362 · Aditya Pratama\n\n**Permintaan.** Mohon disetujui Letter of Guarantee (LOG) untuk laparoscopic appendectomy (K35.8) di RS Cendana Jakarta tanggal 2026-05-03. Estimasi biaya episode IDR 18.7 juta · estimasi reimbursement BPJS IDR 16.2 juta · liabilitas pasien IDR 2.5 juta.\n\n**Pendukung.**\n- Rujukan FKTP dilampirkan\n- USG abdomen confirms acute appendicitis with peri-appendiceal collection\n- WBC 18.2 · CRP 84\n\n**Kelas perawatan.** Class I sesuai kepesertaan PBPU.\n\n**Mohon konfirmasi LOG dalam 4 jam** untuk memungkinkan operasi same-day.\n\n— RS Cendana Jakarta · TPA desk · drafted by TatvaCare agent", consent_status: "PENDING", consent_signed_at: null, cost_breakdown_json: "{\"room\":4200000,\"procedures\":9800000,\"drugs\":1600000,\"implants\":0,\"labs\":1800000,\"other\":1300000}" },
+  { id: "fc3", patient_id: "p5", payor_id: "bpjs", hospital_id: "h1", status: "PENDING", drg: "INA-CBG K-1-15-II", dx: "Laparoscopic appendectomy · acute (K35.8)", scheduled_admission_at: "2026-05-03T08:30:00Z", los_predicted: 2.1, los_ci_low: 1.5, los_ci_high: 3.0, episode_cost_idr: 18_700_000, expected_reimb_idr: 16_200_000, patient_liability_idr: 2_500_000, deposit_required_idr: 1_500_000, deposit_collected_idr: 0, bad_debt_risk_tier: "LOW", payment_mode: "CASHLESS_INSURED", gop_status: "DRAFTED", gop_letter_md: "**To:** BPJS Kesehatan · Klaim Adjudikasi\n**Re:** Pre-auth/GOP request · MRN-734362 · Aditya Pratama\n\n**Permintaan.** Mohon disetujui Letter of Guarantee (LOG) untuk laparoscopic appendectomy (K35.8) di RS Cendana Jakarta tanggal 2026-05-03. Estimasi biaya episode IDR 18.7 juta · estimasi reimbursement BPJS IDR 16.2 juta · liabilitas pasien IDR 2.5 juta.\n\n**Pendukung.**\n- Rujukan FKTP dilampirkan\n- USG abdomen confirms acute appendicitis with peri-appendiceal collection\n- WBC 18.2 · CRP 84\n\n**Kelas perawatan.** Class I sesuai kepesertaan PBPU.\n\n**Mohon konfirmasi LOG dalam 4 jam** untuk memungkinkan operasi same-day.\n\n— RS Cendana Jakarta · TPA desk · drafted by TatvaCare RCM workflow", consent_status: "PENDING", consent_signed_at: null, cost_breakdown_json: "{\"room\":4200000,\"procedures\":9800000,\"drugs\":1600000,\"implants\":0,\"labs\":1800000,\"other\":1300000}" },
   // PCI Surabaya — cleared
   { id: "fc4", patient_id: "p6", payor_id: "aia", hospital_id: "h2", status: "CLEARED", drg: "PRIV-CARDIO-PCI-S", dx: "Single-vessel PCI · stable angina (I20.0)", scheduled_admission_at: "2026-05-03T09:00:00Z", los_predicted: 2.4, los_ci_low: 1.8, los_ci_high: 3.3, episode_cost_idr: 138_900_000, expected_reimb_idr: 124_400_000, patient_liability_idr: 14_500_000, deposit_required_idr: 6_000_000, deposit_collected_idr: 6_000_000, bad_debt_risk_tier: "LOW", payment_mode: "CASHLESS_INSURED", gop_status: "APPROVED", gop_letter_md: null, consent_status: "SIGNED", consent_signed_at: "2026-05-03T08:08:00Z", cost_breakdown_json: "{\"room\":16200000,\"procedures\":62100000,\"drugs\":9800000,\"implants\":36400000,\"labs\":4500000,\"other\":9900000}" },
   // Pneumonia BPJS Bandung — conditional, awaiting deposit waiver decision
@@ -547,7 +544,7 @@ const inpatients = [
   // Day 4 of 5 authorized — improving, on track
   { id: "ip1", patient_id: "p1", payor_id: "bpjs", hospital_id: "h1", drg: "INA-CBG O-6-13-I", dx: "Post-laparoscopic hysterectomy · endometriosis", ward_class: "Class I", attending_physician: "Dr. Andi Permadi", admission_date: "2026-04-29T08:30:00Z", day_of_stay: 4, authorized_days: 5, los_drg_benchmark: 4.2, los_variance_pct: -4.8, acuity: "IMPROVING", medical_necessity_score: 0.94, medical_necessity_gaps_json: "[]", auth_extension_status: "NOT_NEEDED", auth_extension_letter_md: null, discharge_readiness_score: 0.78, avoidable_day_flag: 0, avoidable_day_reason: null },
   // Day 6 of 5 authorized — over benchmark, extension drafted
-  { id: "ip2", patient_id: "p7", payor_id: "bpjs", hospital_id: "h3", drg: "INA-CBG E-4-10-I", dx: "Severe community-acquired pneumonia · awaiting cultures", ward_class: "Class II", attending_physician: "Dr. Maya Suharto", admission_date: "2026-04-27T15:30:00Z", day_of_stay: 6, authorized_days: 5, los_drg_benchmark: 5.8, los_variance_pct: 3.4, acuity: "WATCH", medical_necessity_score: 0.71, medical_necessity_gaps_json: "[\"Quantitative oxygen saturation trend not documented past day 4\",\"IV antibiotic continuation rationale lacks objective markers (CRP, WBC trend)\"]", auth_extension_status: "DRAFTED", auth_extension_letter_md: "**To:** BPJS Kesehatan · Utilisasi Manajemen\n**Re:** Permintaan perpanjangan otorisasi · MRN-734395 · Reza Firmansyah\n\n**Justifikasi klinis hari ke-7+.**\n\nPasien laki-laki 66 tahun dengan severe CAP (J18.9) telah dirawat sejak 2026-04-27 dengan terapi IV ceftriaxone + azithromycin. Status klinis hari ke-6:\n- SpO₂ 92% pada 2 LPM nasal · belum mencapai target 95% room air\n- WBC menurun dari 22 → 14 (hari ke-3 → hari ke-6) · masih di atas normal\n- CRP menurun dari 168 → 64 · positif tapi belum stabil\n- Demam intermiten · hari ke-5 puncak 38.4°C\n\n**Permintaan.** Perpanjangan 3 hari otorisasi (hingga 2026-05-06) untuk:\n1. Lanjutkan IV antibiotik sampai 5 hari afebris\n2. Step-down ke oral setelah CRP &lt; 30\n3. Rencana discharge dengan home antibiotic\n\n**Risiko jika discharge dini.** Tinggi · readmission rate untuk severe CAP discharged dengan CRP &gt; 50 adalah 18% dalam 7 hari (data internal Cendana Bandung 2024).\n\n— Dr. Maya Suharto, SpPD-KP · co-signed by TatvaCare agent · routed for medical director review", discharge_readiness_score: 0.42, avoidable_day_flag: 0, avoidable_day_reason: null },
+  { id: "ip2", patient_id: "p7", payor_id: "bpjs", hospital_id: "h3", drg: "INA-CBG E-4-10-I", dx: "Severe community-acquired pneumonia · awaiting cultures", ward_class: "Class II", attending_physician: "Dr. Maya Suharto", admission_date: "2026-04-27T15:30:00Z", day_of_stay: 6, authorized_days: 5, los_drg_benchmark: 5.8, los_variance_pct: 3.4, acuity: "WATCH", medical_necessity_score: 0.71, medical_necessity_gaps_json: "[\"Quantitative oxygen saturation trend not documented past day 4\",\"IV antibiotic continuation rationale lacks objective markers (CRP, WBC trend)\"]", auth_extension_status: "DRAFTED", auth_extension_letter_md: "**To:** BPJS Kesehatan · Utilisasi Manajemen\n**Re:** Permintaan perpanjangan otorisasi · MRN-734395 · Reza Firmansyah\n\n**Justifikasi klinis hari ke-7+.**\n\nPasien laki-laki 66 tahun dengan severe CAP (J18.9) telah dirawat sejak 2026-04-27 dengan terapi IV ceftriaxone + azithromycin. Status klinis hari ke-6:\n- SpO₂ 92% pada 2 LPM nasal · belum mencapai target 95% room air\n- WBC menurun dari 22 → 14 (hari ke-3 → hari ke-6) · masih di atas normal\n- CRP menurun dari 168 → 64 · positif tapi belum stabil\n- Demam intermiten · hari ke-5 puncak 38.4°C\n\n**Permintaan.** Perpanjangan 3 hari otorisasi (hingga 2026-05-06) untuk:\n1. Lanjutkan IV antibiotik sampai 5 hari afebris\n2. Step-down ke oral setelah CRP &lt; 30\n3. Rencana discharge dengan home antibiotic\n\n**Risiko jika discharge dini.** Tinggi · readmission rate untuk severe CAP discharged dengan CRP &gt; 50 adalah 18% dalam 7 hari (data internal Cendana Bandung 2024).\n\n— Dr. Maya Suharto, SpPD-KP · co-signed by TatvaCare RCM workflow · routed for medical director review", discharge_readiness_score: 0.42, avoidable_day_flag: 0, avoidable_day_reason: null },
   // Day 3 of 3 authorized — ready for discharge
   { id: "ip3", patient_id: "p2", payor_id: "aia", hospital_id: "h1", drg: "PRIV-CARDIO-PCI-S", dx: "Post single-vessel PCI · NSTEMI · stable", ward_class: "Private", attending_physician: "Dr. Riza Anandita, SpJP", admission_date: "2026-04-30T11:14:00Z", day_of_stay: 3, authorized_days: 3, los_drg_benchmark: 2.8, los_variance_pct: 7.1, acuity: "STABLE", medical_necessity_score: 0.91, medical_necessity_gaps_json: "[]", auth_extension_status: "NOT_NEEDED", auth_extension_letter_md: null, discharge_readiness_score: 0.94, avoidable_day_flag: 0, avoidable_day_reason: null },
   // Day 2 of 3 — elective C-section, on benchmark
@@ -565,30 +562,13 @@ const inpatients = [
   // Day 8 of 9 — glioma craniotomy, critical
   { id: "ip10", patient_id: "p21", payor_id: "aia", hospital_id: "h1", drg: "PRIV-NEURO-CRANI", dx: "Post craniotomy · glioblastoma · ICU step-down day 8", ward_class: "Private", attending_physician: "Dr. Arman Khusaini, SpBS", admission_date: "2026-04-25T16:20:00Z", day_of_stay: 8, authorized_days: 9, los_drg_benchmark: 8.5, los_variance_pct: -5.9, acuity: "CRITICAL", medical_necessity_score: 0.96, medical_necessity_gaps_json: "[]", auth_extension_status: "NOT_NEEDED", auth_extension_letter_md: null, discharge_readiness_score: 0.18, avoidable_day_flag: 0, avoidable_day_reason: null },
   // Day 7 of 5 authorized — over auth, extension critical
-  { id: "ip11", patient_id: "p9", payor_id: "pru", hospital_id: "h1", drg: "PRIV-ORTHO-HIP", dx: "Post right THR · OA hip · day 7 · wound oversight", ward_class: "Private", attending_physician: "Dr. Krisna Adi, SpOT", admission_date: "2026-04-26T14:32:00Z", day_of_stay: 7, authorized_days: 5, los_drg_benchmark: 5.0, los_variance_pct: 40.0, acuity: "WATCH", medical_necessity_score: 0.68, medical_necessity_gaps_json: "[\"Wound exudate culture pending — needed to support continued IV abx\",\"Inflammatory markers (CRP, ESR) not trended\"]", auth_extension_status: "DRAFTED", auth_extension_letter_md: "**To:** Prudential Indonesia · Utilization Management\n**Re:** Auth extension request · PRU-44-991-770 · Wahyu Santoso\n\n**Clinical justification for continued stay (days 6-9).**\n\n54-yo male post right THR (M16.1) admitted 2026-04-26. Course initially uncomplicated until day 5 when surgical wound demonstrated exudate with surrounding erythema. Cultures sent 2026-04-30; antibiotics empirically started.\n\n**Day 7 status:**\n- Wound: persistent exudate, erythema reducing\n- Mobility: assisted transfers only\n- Inflammatory markers: CRP 68 (down from 102 day 5)\n- Cultures: preliminary GPCs · final pending\n\n**Plan and clinical evidence for additional days:**\n1. Continue IV cefazolin pending culture sensitivity (3 days)\n2. PT mobilisation BID — current barrier to discharge\n3. Discharge target: day 10 with home IV plan if cultures permit\n\n**Why this exceeds DRG benchmark.** Surgical site infection risk · clinical urgency clear · attached cultures and CRP trend support continued IV access.\n\n— Dr. Krisna Adi, SpOT · drafted by TatvaCare agent · routed for utilization review", discharge_readiness_score: 0.34, avoidable_day_flag: 0, avoidable_day_reason: null },
+  { id: "ip11", patient_id: "p9", payor_id: "pru", hospital_id: "h1", drg: "PRIV-ORTHO-HIP", dx: "Post right THR · OA hip · day 7 · wound oversight", ward_class: "Private", attending_physician: "Dr. Krisna Adi, SpOT", admission_date: "2026-04-26T14:32:00Z", day_of_stay: 7, authorized_days: 5, los_drg_benchmark: 5.0, los_variance_pct: 40.0, acuity: "WATCH", medical_necessity_score: 0.68, medical_necessity_gaps_json: "[\"Wound exudate culture pending — needed to support continued IV abx\",\"Inflammatory markers (CRP, ESR) not trended\"]", auth_extension_status: "DRAFTED", auth_extension_letter_md: "**To:** Prudential Indonesia · Utilization Management\n**Re:** Auth extension request · PRU-44-991-770 · Wahyu Santoso\n\n**Clinical justification for continued stay (days 6-9).**\n\n54-yo male post right THR (M16.1) admitted 2026-04-26. Course initially uncomplicated until day 5 when surgical wound demonstrated exudate with surrounding erythema. Cultures sent 2026-04-30; antibiotics empirically started.\n\n**Day 7 status:**\n- Wound: persistent exudate, erythema reducing\n- Mobility: assisted transfers only\n- Inflammatory markers: CRP 68 (down from 102 day 5)\n- Cultures: preliminary GPCs · final pending\n\n**Plan and clinical evidence for additional days:**\n1. Continue IV cefazolin pending culture sensitivity (3 days)\n2. PT mobilisation BID — current barrier to discharge\n3. Discharge target: day 10 with home IV plan if cultures permit\n\n**Why this exceeds DRG benchmark.** Surgical site infection risk · clinical urgency clear · attached cultures and CRP trend support continued IV access.\n\n— Dr. Krisna Adi, SpOT · drafted by TatvaCare RCM workflow · routed for utilization review", discharge_readiness_score: 0.34, avoidable_day_flag: 0, avoidable_day_reason: null },
   // Day 1 of 4 — chemo cycle, just admitted
   { id: "ip12", patient_id: "p10", payor_id: "aia", hospital_id: "h2", drg: "PRIV-ONCO-CHEMO-D", dx: "Cycle 4 · breast Ca chemo · day 1", ward_class: "Private", attending_physician: "Dr. Ratu Anjarwati, SpOnk", admission_date: "2026-05-03T07:30:00Z", day_of_stay: 1, authorized_days: 1, los_drg_benchmark: 1.0, los_variance_pct: 0.0, acuity: "STABLE", medical_necessity_score: 0.97, medical_necessity_gaps_json: "[]", auth_extension_status: "NOT_NEEDED", auth_extension_letter_md: null, discharge_readiness_score: 0.94, avoidable_day_flag: 0, avoidable_day_reason: null },
   // Day 6 of 5 — TURP over auth
   { id: "ip13", patient_id: "p11", payor_id: "bpjs", hospital_id: "h3", drg: "INA-CBG K-2-13-I", dx: "Post-TURP · BPH · urinary retention day 6", ward_class: "Class I", attending_physician: "Dr. Hapsah Ramli, SpU", admission_date: "2026-04-28T11:00:00Z", day_of_stay: 6, authorized_days: 5, los_drg_benchmark: 4.0, los_variance_pct: 50.0, acuity: "WATCH", medical_necessity_score: 0.74, medical_necessity_gaps_json: "[\"Voiding trial result not documented\",\"PVR (post-void residual) trend missing\"]", auth_extension_status: "SUBMITTED", auth_extension_letter_md: null, discharge_readiness_score: 0.49, avoidable_day_flag: 0, avoidable_day_reason: null },
   // Day 5 of 5 — myomectomy ready
   { id: "ip14", patient_id: "p12", payor_id: "bpjs", hospital_id: "h2", drg: "INA-CBG O-6-15-I", dx: "Post myomectomy · uterine fibroid · ready for discharge", ward_class: "Class II", attending_physician: "Dr. Mira Adelina, SpOG", admission_date: "2026-04-29T15:00:00Z", day_of_stay: 5, authorized_days: 5, los_drg_benchmark: 4.0, los_variance_pct: 25.0, acuity: "STABLE", medical_necessity_score: 0.86, medical_necessity_gaps_json: "[]", auth_extension_status: "NOT_NEEDED", auth_extension_letter_md: null, discharge_readiness_score: 0.91, avoidable_day_flag: 1, avoidable_day_reason: "Pharmacy delay · TTOs not ready until evening day 4" },
-  // Ravi Subramaniam — concurrent stay · sepsis extension · evidence is uploaded paper docs
-  { id: "ip15", patient_id: "p43", payor_id: "aia", hospital_id: "h1", drg: "PRIV-MEDS-SEPSIS-S", dx: "Severe CAP with sepsis · day 6 · culture-confirmed Klebsiella · IV abx ongoing", ward_class: "Private", attending_physician: "Dr. Iqbal Hartanto, SpPD-KP", admission_date: "2026-04-29T11:20:00Z", day_of_stay: 6, authorized_days: 5, los_drg_benchmark: 6.5, los_variance_pct: 7.7, acuity: "WATCH", medical_necessity_score: 0.78, medical_necessity_gaps_json: "[\"Awaiting paper evidence — culture results, PCT trend, progress notes\",\"Extension blocked until uploads received\"]", auth_extension_status: "DRAFTED", auth_extension_letter_md: "**To:** AIA Indonesia · Utilization Management\n**Re:** Auth extension · AIA-IDN-22-008-441 · Ravi Subramaniam (MRN-734910)\n\n**Why we need 4 more days.**\n\n58-yo male admitted 2026-04-29 with severe community-acquired pneumonia (J18.9). Day 4 culture confirmed *Klebsiella pneumoniae* bacteraemia (A41.9 sepsis). Initial 5-day authorisation does not cover the IV antibiotic course indicated for gram-negative sepsis.\n\n**Day 6 clinical status (extracted from physician progress notes & paper labs uploaded today):**\n- SpO₂ 93% on 3 LPM — target 95% room air not yet met\n- WBC 18 → 12 (day 2 → day 6) · still elevated\n- Procalcitonin 8.4 → 2.1 ng/mL · responding but not normalised\n- Lactate cleared (4.2 → 1.6) · sepsis trajectory improving\n- Cultures: *K. pneumoniae* sensitive to meropenem (in flight)\n\n**Plan for days 7-10:**\n1. Continue IV meropenem · 14-day course standard for K. pneumoniae bacteraemia\n2. Step-down to oral once afebrile 48h with PCT &lt; 0.5\n3. Discharge target day 10 with PICC line for home IV completion\n\n**Why early discharge is unsafe.** Mortality for under-treated K. pneumoniae bacteraemia is 30-40% (Cendana ID dataset, n=412). Cultures and PCT trend attached as evidence — both extracted from physical lab printouts uploaded by claims associate.\n\n— Dr. Iqbal Hartanto, SpPD-KP · drafted by TatvaCare agent from extracted paper records · awaiting medical-director co-sign", discharge_readiness_score: 0.36, avoidable_day_flag: 0, avoidable_day_reason: null },
-];
-
-// ── Uploaded documents (Ravi's journey) ──────────────────────────────────
-// These are physical/handwritten artefacts the claims associate uploaded;
-// the Clinical Extractor agent OCRs them, codes them, then hands off to the Packet agent.
-const uploadedDocs = [
-  // c43 · pre-auth — INTENTIONALLY EMPTY (associate runs the journey live)
-  // ip15 · concurrent — INTENTIONALLY EMPTY (extension blocked until uploads)
-
-  // c44 · post-discharge · 5 docs assembled for prior TURP claim (all coded, packet built)
-  { id: "ud8", owner_kind: "claim", owner_id: "c44", patient_id: "p43", kind: "handwritten_anesthesia", filename: "anesthesia_record_2026-04-23.pdf", source_clinic: "Cendana Jakarta · OT-3", uploaded_by: "associate", uploaded_at: "2026-05-04T07:11:00Z", pages: 2, ocr_excerpt: "Spinal anaesthesia, bupivacaine 12mg. Duration 48 min. Vital signs stable throughout. ASA II.", extracted_icd: null, extracted_cpt: "00914", extracted_drg: null, status: "handed_to_packet", sort: 1 },
-  { id: "ud9", owner_kind: "claim", owner_id: "c44", patient_id: "p43", kind: "op_report", filename: "OT_report_TURP_scanned.pdf", source_clinic: "Cendana Jakarta · Urology", uploaded_by: "associate", uploaded_at: "2026-05-04T07:12:00Z", pages: 3, ocr_excerpt: "TURP performed for BPH. Resected weight 28g. No complications. Bladder irrigation set up post-op. Estimated blood loss 80mL.", extracted_icd: "N40.0", extracted_cpt: "52601", extracted_drg: "PRIV-UROL-TURP", status: "handed_to_packet", sort: 2 },
-  { id: "ud10", owner_kind: "claim", owner_id: "c44", patient_id: "p43", kind: "pathology", filename: "pathology_TURP_chips.pdf", source_clinic: "Cendana Jakarta · Pathology", uploaded_by: "associate", uploaded_at: "2026-05-04T07:13:00Z", pages: 1, ocr_excerpt: "Specimen: prostatic chips, 28g. Histology: nodular hyperplasia, benign. No malignancy.", extracted_icd: "N40.0", extracted_cpt: "88305", extracted_drg: null, status: "handed_to_packet", sort: 3 },
-  { id: "ud11", owner_kind: "claim", owner_id: "c44", patient_id: "p43", kind: "discharge_summary", filename: "discharge_summary_handwritten.pdf", source_clinic: "Cendana Jakarta · Urology", uploaded_by: "associate", uploaded_at: "2026-05-04T07:14:00Z", pages: 2, ocr_excerpt: "Discharge condition: stable, voiding well after catheter removal. Home with tamsulosin. F/U urology 2 weeks.", extracted_icd: "N40.0", extracted_cpt: null, extracted_drg: null, status: "handed_to_packet", sort: 4 },
-  { id: "ud12", owner_kind: "claim", owner_id: "c44", patient_id: "p43", kind: "invoice", filename: "final_invoice_INV-44871.pdf", source_clinic: "Cendana Jakarta · Billing", uploaded_by: "associate", uploaded_at: "2026-05-04T07:15:00Z", pages: 2, ocr_excerpt: "Total IDR 88,400,000. Room IDR 14M, Procedures IDR 38M, Drugs IDR 12M, Implants IDR 0, Labs IDR 6M, Other IDR 18.4M.", extracted_icd: null, extracted_cpt: null, extracted_drg: null, status: "handed_to_packet", sort: 5 },
 ];
 
 const pipeline = [
@@ -602,7 +582,7 @@ const pipeline = [
 ];
 
 // ── Denial codes (per-payor × code grid) ────────────────────────────────
-// Bahasa-Indonesian phrasing matches what TPAs (AdMedika, BPJS verifier) use on
+// Bahasa-Indonesian phrasing matches what cashless review desks and BPJS verifiers use on
 // real returned berkas. Each row is one (payor, code) pair with the share of
 // denials of that type seen at that payor. Rows omitted for payors that don't
 // use the code (e.g., re-admisi <7d bundling and limit-kamar prorate are
@@ -657,35 +637,35 @@ const denialCodes = [
 // columns mirror the rest of the seed; downstream tables get separate ins()
 // calls so the column-shape contract is preserved per group.
 
-// Three claims — Budi PAID (CABG with top-up), Siti PREAUTH_BUILDING (lap chole),
-// Ravi BUILDING (TKR · denial row drives PD_DENIED in worklist).
+// Three claims — Budi PAID (cardiac surgery with top-up), Siti AWAITING_PREAUTH (C-section),
+// Ravi BUILDING (PCI · denial row drives PD_DENIED in worklist).
 const deepClaims = [
   // Budi · post-discharge · GL top-up approved · final claim settled
-  { id: "c-budi", patient_id: "p-budi", payor_id: "pru", hospital_id: "h1",
+  { id: "c-budi", patient_id: "p-budi", payor_id: "bpjs", hospital_id: "h1",
     drg: "PRIV-CARDIO-CABG-S", dx: "CABG · 4-vessel · with pre-existing T2DM/HTN (I25.10)",
     los_days: 9, gross_idr: 322_000_000, expected_reimb_idr: 315_000_000, deposit_idr: 12_000_000,
     // AUTO_CLEARED keeps Budi visible in the post-discharge silo with a "Verdict — Approved" label.
     status: "AUTO_CLEARED", stage: "AUTO_CLEARED", days_in_stage: 0,
     submitted_at: "2026-04-28T11:20:00Z", paid_at: "2026-05-04T08:14:00Z", denial_reason: null,
-    acceptance_score: 0.94, predicted_dtp_days: 6, agent_step: null,
+    acceptance_score: 0.92, predicted_dtp_days: 6, agent_step: null,
     risk_flag: null, source: "EMR" },
-  // Siti · pre-admission · packet building (BPJS lap chole)
+  // Siti · pre-admission · packet submitted and under review (BPJS C-section)
   { id: "c-siti", patient_id: "p-siti", payor_id: "bpjs", hospital_id: "h2",
-    drg: "INA-CBG K-1-40-I", dx: "Laparoscopic cholecystectomy · symptomatic cholelithiasis (K80.20)",
-    los_days: 2, gross_idr: 22_500_000, expected_reimb_idr: 19_800_000, deposit_idr: 1_500_000,
-    status: "PREAUTH_BUILDING", stage: "PREAUTH_BUILDING", days_in_stage: 1,
+    drg: "INA-CBG O-6-10-I", dx: "Planned repeat C-section · breech presentation with prior scar (O64)",
+    los_days: 3, gross_idr: 24_800_000, expected_reimb_idr: 21_400_000, deposit_idr: 1_500_000,
+    status: "AWAITING_PREAUTH", stage: "AWAITING_PREAUTH", days_in_stage: 1,
     submitted_at: "2026-05-04T09:30:00Z", paid_at: null, denial_reason: null,
-    acceptance_score: 0.88, predicted_dtp_days: 9, agent_step: "Drafting initial GL packet · BPJS VClaim",
+    acceptance_score: 0.84, predicted_dtp_days: 9, agent_step: "Initial BPJS C-section packet under review",
     risk_flag: null, source: "EMR" },
   // Ravi · post-discharge · partial denial → appeal in flight (denial row below)
   { id: "c-ravi", patient_id: "p-ravi", payor_id: "aia", hospital_id: "h1",
-    drg: "PRIV-ORTHO-TKR", dx: "Right TKR · OA bilateral (M17.0)",
+    drg: "PRIV-CARDIO-PCI-S", dx: "PCI · LAD lesion with unstable angina (I20.0)",
     los_days: 5, gross_idr: 178_500_000, expected_reimb_idr: 142_800_000, deposit_idr: 8_000_000,
     status: "BUILDING", stage: "BUILDING", days_in_stage: 2,
     submitted_at: "2026-04-26T10:00:00Z", paid_at: null,
-    denial_reason: "Room rent cap exceeded — Deluxe room IDR 3.2M/day vs plan IDR 2.0M/day. Prorate applied across all line items.",
-    acceptance_score: 0.62, predicted_dtp_days: 14,
-    agent_step: "Drafting appeal letter (medical necessity for higher room: post-op infection risk)",
+    denial_reason: "Room rent cap exceeded — monitored cardiac room IDR 3.2M/day vs plan IDR 2.0M/day. Prorate applied across all line items.",
+    acceptance_score: 0.68, predicted_dtp_days: 14,
+    agent_step: "Drafting appeal letter for monitored cardiac room medical necessity",
     risk_flag: "RoomRentCap", source: "EMR" },
 ];
 
@@ -693,7 +673,7 @@ const deepClaims = [
 const deepDenials = [
   { id: "d-ravi", claim_id: "c-ravi", payor_id: "aia", hospital_id: "h1",
     category: "contractual", reason_code: "CON-04",
-    reason_text: "Limit kamar terlampaui — Deluxe room IDR 3.2M/day melebihi plan tier-3 cap IDR 2.0M/day. Prorate IDR 142.8M ÷ ratio 0.625 = IDR 89.25M.",
+    reason_text: "Limit kamar terlampaui — monitored cardiac room IDR 3.2M/day melebihi plan tier-3 cap IDR 2.0M/day. Prorate IDR 142.8M ÷ ratio 0.625 = IDR 89.25M.",
     denied_amount_idr: 53_550_000,
     denied_at: "2026-04-30T14:22:00Z",
     appeal_deadline_at: "2026-05-30T23:59:59Z",
@@ -705,8 +685,8 @@ const deepDenials = [
 // One appeal draft — Ravi's medical-necessity rebuttal.
 const deepAppealDrafts = [
   { id: "ad-ravi", denial_id: "d-ravi",
-    letter_md: "Dear AIA Indonesia Adjudication Team,\n\nWe respectfully contest the prorate deduction applied to claim 22-IDN-RAVI per CON-04...\n\n[Justification: Deluxe room was clinically necessary due to post-operative infection-risk profile — patient OA + comorbid HTN. Standard 4-bed ward presents elevated MRSA exposure on TKR cohort per Mayapada infection-control SOP §4.7.]\n\nWe attach: (1) Surgical site infection risk assessment by Dr. Eka Wibowo, (2) Mayapada infection-control protocol, (3) Comparable cases approved historically.\n\nKindly reconsider for full settlement at IDR 142.8M.\n\nRegards,\nMayapada Hospital · RCM",
-    attachments_json: '["surgical_site_infection_risk_assessment.pdf","infection_control_protocol_§4.7.pdf","historical_cases_table.xlsx"]',
+    letter_md: "Dear AIA Indonesia Adjudication Team,\n\nWe respectfully contest the prorate deduction applied to claim 22-IDN-RAVI per CON-04...\n\n[Justification: the monitored cardiac room was clinically necessary after PCI because the patient remained on arrhythmia-watch protocol and required telemetry access not available in the standard multi-bed room.]\n\nWe attach: (1) monitored-room medical necessity letter by Dr. Albert Santoso, (2) cardiac monitored-room protocol §4.7, (3) comparable cases approved historically.\n\nKindly reconsider for full settlement at IDR 142.8M.\n\nRegards,\nMayapada Hospital · RCM",
+    attachments_json: '["monitored_room_medical_necessity_letter.pdf","infection_control_protocol_§4.7.pdf","historical_cases_table.xlsx"]',
     drafted_at: "2026-05-02T09:30:00Z",
     submitted_at: null,
     outcome: null },
@@ -727,12 +707,14 @@ const glSubmissions = [
     amount_idr: 322_000_000, drafted_at: "2026-04-27T14:00:00Z",
     submitted_at: "2026-04-28T11:20:00Z", decided_at: "2026-05-04T08:14:00Z",
     decision_note: "Final claim settled · approved with amendment" },
-  // Siti: initial in flight, final not started
+  // Siti: initial in flight, downstream packets not started yet
   { id: "gl-siti-1", patient_id: "p-siti", kind: "initial", state: "submitted",
     amount_idr: 19_800_000, drafted_at: "2026-05-03T15:00:00Z",
     submitted_at: "2026-05-04T09:30:00Z", decided_at: null,
     decision_note: null },
-  { id: "gl-siti-2", patient_id: "p-siti", kind: "final", state: "not_started",
+  { id: "gl-siti-2", patient_id: "p-siti", kind: "topup", state: "not_started",
+    amount_idr: null, drafted_at: null, submitted_at: null, decided_at: null, decision_note: null },
+  { id: "gl-siti-3", patient_id: "p-siti", kind: "final", state: "not_started",
     amount_idr: null, drafted_at: null, submitted_at: null, decided_at: null, decision_note: null },
   // Ravi: initial approved, final partial → contesting
   { id: "gl-ravi-1", patient_id: "p-ravi", kind: "initial", state: "approved",
@@ -743,43 +725,60 @@ const glSubmissions = [
     amount_idr: 89_250_000, drafted_at: "2026-04-25T10:00:00Z",
     submitted_at: "2026-04-26T10:00:00Z", decided_at: "2026-04-30T14:22:00Z",
     decision_note: "Partial settlement · CON-04 prorate · IDR 89.25M (vs claimed 142.8M) · contest in progress" },
+  // Ayu: packet build in progress from uploaded outside-clinic evidence
+  { id: "gl-ayu-1", patient_id: "p43", kind: "initial", state: "drafting",
+    amount_idr: null, drafted_at: "2026-05-04T09:15:00Z",
+    submitted_at: null, decided_at: null,
+    decision_note: "Packet build in progress from uploaded outside-clinic documents" },
+  { id: "gl-ayu-2", patient_id: "p43", kind: "topup", state: "not_started",
+    amount_idr: null, drafted_at: null, submitted_at: null, decided_at: null, decision_note: null },
+  { id: "gl-ayu-3", patient_id: "p43", kind: "final", state: "not_started",
+    amount_idr: null, drafted_at: null, submitted_at: null, decided_at: null, decision_note: null },
 ];
 
 // Patient-specific email threads (drama beats) — Budi top-up TPA query, Ravi prorate notice.
 const patientThreads = [
-  { id: "t-budi-1", payor_id: "pru", patient_id: "p-budi",
-    subject: "Permohonan Perpanjangan Surat Jaminan (GL Top-Up) — Budi Santoso / GL PRU-2026-00341",
-    sender: "klaim@admedika.co.id",
+  { id: "t-budi-1", payor_id: "bpjs", patient_id: "p-budi",
+    subject: "Permohonan Perpanjangan Surat Jaminan (GL Top-Up) — Budi Santoso / GL BPJS-2026-00341",
+    sender: "review@bpjsdesk.co.id",
     excerpt: "Mohon dilampirkan intraoperative finding note + revised cost estimate untuk justifikasi penambahan IDR 55.000.000…",
-    body: "Yth. Mayapada Hospital,\n\nMohon dilampirkan intraoperative finding note yang ditandatangani DPJP (Dr. Wijaya, SpBTKV) serta revised cost estimate untuk justifikasi penambahan IDR 55.000.000 atas tindakan tambahan vessel graft ke-4. Tanpa kelengkapan tersebut, GL top-up tidak dapat diproses.\n\nSalam,\nAdMedika TPA · Prudential Indonesia",
+    body: "Yth. Mayapada Hospital,\n\nMohon dilampirkan intraoperative finding note yang ditandatangani DPJP (Dr. Wijaya, SpBTKV) serta revised cost estimate untuk justifikasi penambahan IDR 55.000.000 atas tindakan tambahan vessel graft ke-4. Tanpa kelengkapan tersebut, GL top-up tidak dapat diproses.\n\nSalam,\nBPJS review desk",
     highlight: "intraoperative finding note + revised cost estimate",
-    outcome: "approved_after_topup", learned_rule: "pru-proc-02",
+    outcome: "approved_after_topup", learned_rule: "bpjs-proc-02",
     ts: "2026-04-22T11:55:00Z" },
   { id: "t-ravi-1", payor_id: "aia", patient_id: "p-ravi",
     subject: "Klaim Sebagian — Limit Kamar Terlampaui · Ravi Subramaniam · Claim 22-IDN-RAVI",
     sender: "claims.id@aia.com",
-    excerpt: "We have applied a prorate deduction at ratio 0.625 for room class exceeding plan tier-3 cap (Deluxe IDR 3.2M/day vs plan IDR 2.0M/day)…",
-    body: "Dear Mayapada Hospital RCM,\n\nClaim 22-IDN-RAVI (PRIV-ORTHO-TKR · Right TKR) adjudicated with adjustment. We have applied a prorate deduction at ratio 0.625 for room class exceeding plan tier-3 cap (Deluxe IDR 3.2M/day vs plan IDR 2.0M/day). Final settlement: IDR 89,250,000.\n\nReconsideration is possible upon receipt of medical-necessity justification for the higher room class.\n\nRegards,\nAIA Indonesia · Claims Adjudication",
-    highlight: "prorate deduction at ratio 0.625 for room class exceeding plan tier-3 cap",
+    excerpt: "We have applied a prorate deduction at ratio 0.625 for monitored-room charges exceeding the plan tier-3 cap (IDR 3.2M/day vs plan IDR 2.0M/day)…",
+    body: "Dear Mayapada Hospital RCM,\n\nClaim 22-IDN-RAVI (PRIV-CARDIO-PCI-S · PCI) adjudicated with adjustment. We have applied a prorate deduction at ratio 0.625 for monitored-room charges exceeding the plan tier-3 cap (IDR 3.2M/day vs plan IDR 2.0M/day). Final settlement: IDR 89,250,000.\n\nReconsideration is possible upon receipt of medical-necessity justification for the higher room class.\n\nRegards,\nAIA Indonesia · Claims Adjudication",
+    highlight: "prorate deduction at ratio 0.625 for monitored-room charges exceeding the plan tier-3 cap",
     outcome: "partial_paid", learned_rule: "aia-fin-01",
     ts: "2026-04-30T14:30:00Z" },
+  { id: "t-ayu-1", payor_id: "pru", patient_id: "p43",
+    subject: "Permintaan kelengkapan awal cashless — Ayu Lestari / planned hysterectomy",
+    sender: "medical.review@prudential.co.id",
+    excerpt: "Mohon unggah surat rujukan SpOG, MRI pelvis, serta pre-op anaesthesia note agar pre-auth dapat diproses…",
+    body: "Yth. RCM Mayapada Hospital,\n\nUntuk pengajuan cashless Ayu Lestari (planned laparoscopic hysterectomy), mohon lampirkan surat rujukan SpOG, MRI pelvis, hasil lab pra-operasi, dan pre-op anaesthesia note. Setelah dokumen lengkap, pre-auth dapat direview pada hari yang sama.\n\nSalam,\nPrudential medical review",
+    highlight: "surat rujukan SpOG, MRI pelvis, hasil lab pra-operasi, dan pre-op anaesthesia note",
+    outcome: "pending", learned_rule: "pru-doc-01",
+    ts: "2026-05-04T09:10:00Z" },
 ];
 
-// Uploaded documents — policy certificates (Mode A trigger) + per-stage paper.
+// Uploaded documents — policy certificates + per-stage paper.
 const deepUploadedDocs = [
-  // Policy certificates — present for Budi + Ravi (Mode A); Siti has none (Mode B).
+  // Policy certificates — present for Budi + Siti; Ravi has none yet.
   { id: "doc-budi-policy", owner_kind: "patient", owner_id: "p-budi", patient_id: "p-budi",
-    kind: "policy_certificate", filename: "PRUSolusi_Sehat_Tier3_Budi.pdf",
-    source_clinic: "Prudential Indonesia · policy on file",
+    kind: "policy_certificate", filename: "BPJS_cardiac_benefits_Budi.pdf",
+    source_clinic: "BPJS benefits schedule · policy on file",
     uploaded_by: "RCM Auto", uploaded_at: "2026-04-15T08:00:00Z",
-    pages: 24, ocr_excerpt: "PRUSolusi Sehat Tier 3 · Sum Insured IDR 500M · Room Cap IDR 1.2M/day · ICU Cap IDR 2.4M/day · Co-pay 0% in network · PED waiting 12 months.",
+    pages: 12, ocr_excerpt: "BPJS cardiac surgical benefits · CABG requires pre-auth form, angiography evidence, and top-up addendum for intra-op scope expansion.",
     extracted_icd: null, extracted_cpt: null, extracted_drg: null,
     status: "handed_to_packet", sort: 0 },
-  { id: "doc-ravi-policy", owner_kind: "patient", owner_id: "p-ravi", patient_id: "p-ravi",
-    kind: "policy_certificate", filename: "AIA_Premier_HS_Tier3_Ravi.pdf",
-    source_clinic: "AIA Indonesia · policy on file",
-    uploaded_by: "RCM Auto", uploaded_at: "2026-04-10T08:00:00Z",
-    pages: 22, ocr_excerpt: "AIA Premier Hospital & Surgical Tier 3 · Sum Insured IDR 400M · Room Cap IDR 2.0M/day · ICU Cap IDR 4.0M/day · Co-pay 10% out of network · PED waiting 12 months.",
+  { id: "doc-siti-policy", owner_kind: "patient", owner_id: "p-siti", patient_id: "p-siti",
+    kind: "policy_certificate", filename: "BPJS_obstetric_benefits_Siti.pdf",
+    source_clinic: "BPJS obstetric benefits · policy on file",
+    uploaded_by: "RCM Auto", uploaded_at: "2026-05-02T08:15:00Z",
+    pages: 10, ocr_excerpt: "BPJS obstetric pre-auth schedule · planned C-section requires OB consult, breech evidence, CTG, and anaesthesia clearance.",
     extracted_icd: null, extracted_cpt: null, extracted_drg: null,
     status: "handed_to_packet", sort: 0 },
 
@@ -820,71 +819,71 @@ const deepUploadedDocs = [
     extracted_icd: null, extracted_cpt: null, extracted_drg: null,
     status: "handed_to_packet", sort: 5 },
 
-  // Siti · stage paper (consult + lab + USG, no policy on file)
+  // Siti · stage paper (consult + OB imaging + pre-auth packet)
   { id: "doc-siti-consult", owner_kind: "patient", owner_id: "p-siti", patient_id: "p-siti",
-    kind: "consult_note", filename: "consult_general_surgery_siti.pdf",
-    source_clinic: "RS Cendana Jakarta · GS",
-    uploaded_by: "Dr. Hapsari, SpB", uploaded_at: "2026-05-02T09:00:00Z",
-    pages: 2, ocr_excerpt: "47F · recurrent biliary colic · USG: gallstones with thickened wall · plan lap chole.",
-    extracted_icd: "K80.20", extracted_cpt: null, extracted_drg: "INA-CBG K-1-40-I",
+    kind: "consult_note", filename: "consult_obgyn_siti.pdf",
+    source_clinic: "RS Cendana Jakarta · Obgyn",
+    uploaded_by: "Dr. Ratna Dewi, SpOG", uploaded_at: "2026-05-02T09:00:00Z",
+    pages: 2, ocr_excerpt: "34F · breech presentation at term with prior C-section scar · plan repeat C-section.",
+    extracted_icd: "O64", extracted_cpt: null, extracted_drg: "INA-CBG O-6-10-I",
     status: "handed_to_packet", sort: 1 },
   { id: "doc-siti-usg", owner_kind: "patient", owner_id: "p-siti", patient_id: "p-siti",
-    kind: "lab_result", filename: "USG_abdomen_siti.pdf",
-    source_clinic: "RS Cendana Jakarta · Radiology",
+    kind: "lab_result", filename: "obstetric_ultrasound_siti.pdf",
+    source_clinic: "RS Cendana Jakarta · Fetomaternal",
     uploaded_by: "Radiology", uploaded_at: "2026-05-02T11:00:00Z",
-    pages: 1, ocr_excerpt: "USG abdomen: cholelithiasis with multiple stones, GB wall 4mm, no CBD dilation. CBC/LFT WNL.",
-    extracted_icd: "K80.20", extracted_cpt: null, extracted_drg: null,
+    pages: 2, ocr_excerpt: "Obstetric ultrasound: singleton pregnancy, breech presentation, reassuring fetal profile. CTG reactive. CBC WNL.",
+    extracted_icd: "O64", extracted_cpt: null, extracted_drg: null,
     status: "handed_to_packet", sort: 2 },
   { id: "doc-siti-preauth", owner_kind: "patient", owner_id: "p-siti", patient_id: "p-siti",
-    kind: "preauth_form", filename: "BPJS_VClaim_preauth_siti.pdf",
+    kind: "preauth_form", filename: "BPJS_csection_preauth_siti.pdf",
     source_clinic: "RS Cendana Jakarta · RCM",
     uploaded_by: "RCM Auto", uploaded_at: "2026-05-04T09:00:00Z",
-    pages: 1, ocr_excerpt: "BPJS VClaim · SEP 2026-05-04-CDJ-00114 · Class I · INA-CBG K-1-40-I.",
-    extracted_icd: "K80.20", extracted_cpt: null, extracted_drg: "INA-CBG K-1-40-I",
+    pages: 1, ocr_excerpt: "BPJS C-section packet · breech presentation + prior scar · Class I · INA-CBG O-6-10-I.",
+    extracted_icd: "O64", extracted_cpt: null, extracted_drg: "INA-CBG O-6-10-I",
     status: "handed_to_packet", sort: 3 },
 
   // Ravi · stage paper + appeal supporting docs
   { id: "doc-ravi-consult", owner_kind: "patient", owner_id: "p-ravi", patient_id: "p-ravi",
-    kind: "consult_note", filename: "consult_orthopaedics_ravi.pdf",
-    source_clinic: "Mayapada Hospital · Ortho",
-    uploaded_by: "Dr. Eka Wibowo, SpOT", uploaded_at: "2026-04-15T10:00:00Z",
-    pages: 3, ocr_excerpt: "51M · OA bilateral knees grade IV (R worse) · failed conservative · plan right TKR. Comorbid HTN controlled.",
-    extracted_icd: "M17.0", extracted_cpt: null, extracted_drg: "PRIV-ORTHO-TKR",
+    kind: "consult_note", filename: "consult_cardiology_ravi.pdf",
+    source_clinic: "Mayapada Hospital · Cardiology",
+    uploaded_by: "Dr. Albert Santoso, SpJP", uploaded_at: "2026-04-15T10:00:00Z",
+    pages: 3, ocr_excerpt: "51M · unstable angina · critical LAD lesion with diagonal involvement · plan PCI. HTN controlled.",
+    extracted_icd: "I20.0", extracted_cpt: null, extracted_drg: "PRIV-CARDIO-PCI-S",
     status: "handed_to_packet", sort: 1 },
   { id: "doc-ravi-opreport", owner_kind: "patient", owner_id: "p-ravi", patient_id: "p-ravi",
-    kind: "op_report", filename: "OT_report_TKR_ravi.pdf",
-    source_clinic: "Mayapada Hospital · OT-1",
-    uploaded_by: "Dr. Eka Wibowo, SpOT", uploaded_at: "2026-04-21T16:00:00Z",
-    pages: 4, ocr_excerpt: "Right TKR · cemented · Zimmer NexGen LPS · tourniquet 62 min · EBL 280mL · uneventful.",
-    extracted_icd: "M17.0", extracted_cpt: "27447", extracted_drg: "PRIV-ORTHO-TKR",
+    kind: "op_report", filename: "cathlab_report_pci_ravi.pdf",
+    source_clinic: "Mayapada Hospital · Cath Lab",
+    uploaded_by: "Dr. Albert Santoso, SpJP", uploaded_at: "2026-04-21T16:00:00Z",
+    pages: 4, ocr_excerpt: "PCI to LAD with drug-eluting stent placement · TIMI 3 flow post-procedure · no complications.",
+    extracted_icd: "I20.0", extracted_cpt: "92928", extracted_drg: "PRIV-CARDIO-PCI-S",
     status: "handed_to_packet", sort: 2 },
   { id: "doc-ravi-discharge", owner_kind: "patient", owner_id: "p-ravi", patient_id: "p-ravi",
     kind: "discharge_summary", filename: "discharge_summary_ravi.pdf",
-    source_clinic: "Mayapada Hospital · Ortho",
-    uploaded_by: "Dr. Eka Wibowo, SpOT", uploaded_at: "2026-04-25T14:00:00Z",
-    pages: 2, ocr_excerpt: "Discharged day 5 post-TKR. Wound clean, ROM 0-95°, ambulating with walker. PT plan 6 weeks.",
-    extracted_icd: "M17.0", extracted_cpt: null, extracted_drg: null,
+    source_clinic: "Mayapada Hospital · Cardiology",
+    uploaded_by: "Dr. Albert Santoso, SpJP", uploaded_at: "2026-04-25T14:00:00Z",
+    pages: 2, ocr_excerpt: "Discharged day 5 post-PCI. Haemodynamically stable, chest-pain free, dual antiplatelet started.",
+    extracted_icd: "I20.0", extracted_cpt: null, extracted_drg: null,
     status: "handed_to_packet", sort: 3 },
   { id: "doc-ravi-invoice", owner_kind: "patient", owner_id: "p-ravi", patient_id: "p-ravi",
     kind: "invoice", filename: "final_invoice_ravi_178M.pdf",
     source_clinic: "Mayapada Hospital · Billing",
     uploaded_by: "Billing", uploaded_at: "2026-04-26T09:00:00Z",
-    pages: 2, ocr_excerpt: "Total IDR 178,500,000 · Implant IDR 92M · OT IDR 38M · Room (Deluxe 5d) IDR 16M · Drugs IDR 18M · Other IDR 14.5M.",
+    pages: 2, ocr_excerpt: "Total IDR 178,500,000 · Cath-lab + stent IDR 118M · monitored room 5d IDR 16M · drugs IDR 21M · other IDR 23.5M.",
     extracted_icd: null, extracted_cpt: null, extracted_drg: null,
     status: "handed_to_packet", sort: 4 },
   // Appeal supporting docs (kind=other; surface in appeal attachments)
   { id: "doc-ravi-ssirisk", owner_kind: "patient", owner_id: "p-ravi", patient_id: "p-ravi",
-    kind: "other", filename: "surgical_site_infection_risk_assessment.pdf",
-    source_clinic: "Mayapada Hospital · Infection Control",
-    uploaded_by: "Dr. Eka Wibowo, SpOT", uploaded_at: "2026-05-01T09:00:00Z",
-    pages: 2, ocr_excerpt: "SSI risk assessment · OA + comorbid HTN cohort · Deluxe room recommended to reduce MRSA exposure (4-bed ward MRSA prevalence 6.4% vs Deluxe 0.9%).",
+    kind: "other", filename: "monitored_room_medical_necessity_letter.pdf",
+    source_clinic: "Mayapada Hospital · Cardiology",
+    uploaded_by: "Dr. Albert Santoso, SpJP", uploaded_at: "2026-05-01T09:00:00Z",
+    pages: 2, ocr_excerpt: "Medical necessity note · post-PCI monitoring required due to lesion complexity and arrhythmia-watch protocol · single monitored room recommended.",
     extracted_icd: null, extracted_cpt: null, extracted_drg: null,
     status: "handed_to_packet", sort: 5 },
   { id: "doc-ravi-icp", owner_kind: "patient", owner_id: "p-ravi", patient_id: "p-ravi",
     kind: "other", filename: "infection_control_protocol_§4.7.pdf",
-    source_clinic: "Mayapada Hospital · Quality",
+    source_clinic: "Mayapada Hospital · Cardiac Services",
     uploaded_by: "Quality", uploaded_at: "2026-05-01T09:30:00Z",
-    pages: 4, ocr_excerpt: "Mayapada infection-control SOP §4.7 — TKR cohort with comorbidities should be admitted to single-occupancy rooms when feasible.",
+    pages: 4, ocr_excerpt: "Cardiac monitored-room protocol §4.7 — post-PCI patients with arrhythmia-watch indications should be placed in a monitored single room when feasible.",
     extracted_icd: null, extracted_cpt: null, extracted_drg: null,
     status: "handed_to_packet", sort: 6 },
 ];
@@ -905,8 +904,7 @@ export const SEED_SQL = [
   ins("clearances", clearances),
   ins("inpatients", inpatients),
   ins("claims", docDrivenClaims),
-  ins("uploaded_docs", uploadedDocs),
-  // P5 deep-seed group — three patients end-to-end.
+  // P5 deep-seed showcase group — four patients across the intended demo variants.
   ins("claims", deepClaims),
   ins("denials", deepDenials),
   ins("appeal_drafts", deepAppealDrafts),

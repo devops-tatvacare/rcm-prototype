@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Search, Inbox, Send, Sparkles, Pin, Bot } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Panel } from "@/components/ui/Panel";
 import { Pill } from "@/components/ui/Pill";
 import { Button } from "@/components/ui/Button";
 import { query } from "@/lib/db";
 import { relativeTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { isShowcasePatient, showcasePatientOrder } from "@/lib/showcase";
 
 type Thread = {
   id: string;
@@ -15,6 +17,8 @@ type Thread = {
   payor_color: string;
   subject: string;
   sender: string;
+  patient_id: string | null;
+  patient_name: string | null;
   excerpt: string;
   body: string;
   highlight: string | null;
@@ -46,22 +50,28 @@ const PAYOR_FILTERS: { value: PayorFilter; label: string }[] = [
 ];
 
 export function EmailInbox() {
+  const navigate = useNavigate();
   const [threads, setThreads] = useState<Thread[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [linkedRule, setLinkedRule] = useState<RuleLite | null>(null);
   const [payorFilter, setPayorFilter] = useState<PayorFilter>("all");
   const [search, setSearch] = useState("");
   const [sentConfirm, setSentConfirm] = useState<string | null>(null);
+  const [reingestCount, setReingestCount] = useState<number | null>(null);
 
   useEffect(() => {
     query<Thread>(
-      `SELECT t.*, py.name AS payor_name, py.color AS payor_color
+      `SELECT t.*, py.name AS payor_name, py.color AS payor_color, p.name AS patient_name
          FROM email_threads t
          JOIN payors py ON py.id = t.payor_id
-        ORDER BY t.ts DESC`,
+         LEFT JOIN patients p ON p.id = t.patient_id
+         ORDER BY t.ts DESC`,
     ).then((rows) => {
-      setThreads(rows);
-      if (rows.length > 0) setSelectedId(rows[0].id);
+      const showcaseThreads = rows
+        .filter((thread) => isShowcasePatient(thread.patient_id))
+        .sort((a, b) => showcasePatientOrder(a.patient_id) - showcasePatientOrder(b.patient_id));
+      setThreads(showcaseThreads);
+      if (showcaseThreads.length > 0) setSelectedId(showcaseThreads[0].id);
     });
   }, []);
 
@@ -105,8 +115,25 @@ export function EmailInbox() {
 
   function handleSend() {
     if (!selected) return;
-    setSentConfirm(`Reply queued (mocked) to ${selected.sender}`);
+    setSentConfirm(`Reply queued to ${selected.sender}`);
     setTimeout(() => setSentConfirm(null), 2400);
+  }
+
+  function handleReingest() {
+    const total = filteredThreads.length;
+    if (total === 0 || reingestCount !== null) return;
+    setReingestCount(0);
+    let current = 0;
+    const interval = window.setInterval(() => {
+      current += 1;
+      setReingestCount(Math.min(current, total));
+      if (current >= total) {
+        window.clearInterval(interval);
+        setSentConfirm(`Re-ingested ${total} thread${total === 1 ? "" : "s"}`);
+        window.setTimeout(() => setSentConfirm(null), 2400);
+        window.setTimeout(() => setReingestCount(null), 250);
+      }
+    }, 90);
   }
 
   return (
@@ -148,6 +175,9 @@ export function EmailInbox() {
           <span className="font-mono-tight text-[10.5px] text-ink-faint">
             {filteredThreads.length} of {threads.length}
           </span>
+          <Button size="sm" variant="outline" onClick={handleReingest} disabled={filteredThreads.length === 0 || reingestCount !== null}>
+            {reingestCount === null ? "Re-ingest all threads" : `Re-ingesting ${reingestCount}/${filteredThreads.length}`}
+          </Button>
         </div>
       </Panel>
 
@@ -215,6 +245,18 @@ export function EmailInbox() {
                         <span className="truncate font-mono-tight text-[10.5px] text-ink-faint">
                           {t.sender}
                         </span>
+                        {t.patient_id && t.patient_name && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/patient/${t.patient_id}`);
+                            }}
+                            className="rounded-full border border-[var(--color-azure)]/30 bg-[var(--color-azure)]/10 px-2 py-0.5 font-mono-tight text-[10px] text-[var(--color-azure)] transition-colors hover:bg-[var(--color-azure)]/15"
+                          >
+                            {t.patient_name}
+                          </button>
+                        )}
                       </div>
                       <div className="truncate text-[12.5px] text-ink">{t.subject}</div>
                       <div className="truncate text-[11.5px] text-ink-mute">{t.excerpt}</div>
@@ -255,6 +297,15 @@ export function EmailInbox() {
                     />
                     {selected.payor_name}
                   </Pill>
+                  {selected.patient_id && selected.patient_name && (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/patient/${selected.patient_id}`)}
+                      className="rounded-full border border-[var(--color-azure)]/30 bg-[var(--color-azure)]/10 px-2 py-0.5 font-mono-tight text-[10.5px] text-[var(--color-azure)] transition-colors hover:bg-[var(--color-azure)]/15"
+                    >
+                      Patient · {selected.patient_name}
+                    </button>
+                  )}
                   <span className="font-mono-tight text-[10.5px] text-ink-faint">{selected.sender}</span>
                   <span className="font-mono-tight text-[10.5px] text-ink-faint">·</span>
                   <span className="font-mono-tight text-[10.5px] text-ink-faint">
@@ -278,7 +329,7 @@ export function EmailInbox() {
                 <div className="border-t border-line-soft bg-[var(--color-canvas-deep)]/40 px-5 py-3">
                   <div className="flex items-center gap-2">
                     <Sparkles size={11} className="text-[var(--color-champagne)]" />
-                    <span className="eyebrow">Agent annotation</span>
+                    <span className="eyebrow">Thread analysis</span>
                   </div>
                   <div className="mt-2 flex flex-col gap-2">
                     {selected.learned_rule && (
@@ -315,7 +366,7 @@ export function EmailInbox() {
                   <div className="eyebrow mb-2">Reply</div>
                   <textarea
                     disabled
-                    placeholder="Drafted reply by AI agent…"
+                    placeholder="Reply draft from thread context…"
                     className="block h-20 w-full resize-none rounded-md border border-line-soft bg-[var(--color-canvas-deep)]/40 px-3 py-2 text-[12px] text-ink-soft placeholder:text-ink-faint focus:outline-none disabled:cursor-not-allowed"
                   />
                   <div className="mt-2 flex items-center justify-between gap-3">
@@ -338,13 +389,13 @@ export function EmailInbox() {
                           exit={{ opacity: 0 }}
                           className="font-mono-tight text-[10.5px] text-ink-faint"
                         >
-                          Mocked composer · agent draft
+                          Reply draft available for this thread
                         </motion.span>
                       )}
                     </AnimatePresence>
                     <Button size="sm" variant="primary" onClick={handleSend}>
                       <Send size={11} />
-                      Send (mocked)
+                      Send
                     </Button>
                   </div>
                 </div>

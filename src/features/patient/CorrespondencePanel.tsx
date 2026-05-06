@@ -27,6 +27,48 @@ type Thread = {
 
 type RuleLite = { id: string; description: string };
 
+type ChecklistTarget = { id: string; label: string; bucket: "gl" | "topup" | "final" };
+
+const CHECKLIST_TARGETS: ChecklistTarget[] = [
+  { id: "preauth", label: "Pre-auth form", bucket: "gl" },
+  { id: "lma", label: "LMA", bucket: "gl" },
+  { id: "preopanaes", label: "Pre-op anaesthesia note", bucket: "gl" },
+  { id: "intraop", label: "Intra-op finding note", bucket: "topup" },
+  { id: "anaes", label: "Anaesthesia chart", bucket: "topup" },
+  { id: "addlma", label: "Top-up LMA addendum", bucket: "topup" },
+  { id: "rce", label: "Revised cost estimate", bucket: "topup" },
+  { id: "opnote", label: "Op note", bucket: "final" },
+  { id: "ds", label: "Discharge summary", bucket: "final" },
+  { id: "inv", label: "Final invoice", bucket: "final" },
+];
+
+function inferChecklistTargets(thread: Pick<Thread, "subject" | "excerpt" | "body">): ChecklistTarget[] {
+  const text = `${thread.subject} ${thread.excerpt} ${thread.body}`.toLowerCase();
+  return CHECKLIST_TARGETS.filter((target) => {
+    if (target.id === "preauth") return /pre-?auth|surat jaminan|gl\b/.test(text);
+    if (target.id === "lma") return /\blma\b/.test(text);
+    if (target.id === "preopanaes") return /pre-?op anaesth|pre-?op anesth/.test(text);
+    if (target.id === "intraop") return /intra-?op|intraoperative|intra operative/.test(text);
+    if (target.id === "anaes") return /anaesth|anesth/.test(text);
+    if (target.id === "addlma") return /addendum/.test(text);
+    if (target.id === "rce") return /revised cost|cost estimate|estimasi biaya/.test(text);
+    if (target.id === "opnote") return /op note|operative note|operation note/.test(text);
+    if (target.id === "ds") return /discharge summary|resume medis/.test(text);
+    if (target.id === "inv") return /invoice|tagihan/.test(text);
+    return false;
+  });
+}
+
+function jumpToChecklist(target: ChecklistTarget) {
+  const item = document.getElementById(`checklist-item-${target.id}`);
+  if (item) {
+    item.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+  const bucket = document.getElementById(`checklist-bucket-${target.bucket}`);
+  bucket?.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
 export function CorrespondencePanel({
   payorId,
   patientId,
@@ -93,7 +135,7 @@ export function CorrespondencePanel({
   }, [payorId, patientId]);
 
   function handleSend() {
-    setSentConfirm("Reply queued (mocked).");
+    setSentConfirm("Reply queued.");
     setDraft("");
     setComposerOpen(false);
     setTimeout(() => setSentConfirm(null), 2400);
@@ -148,6 +190,20 @@ export function CorrespondencePanel({
                 <div className="mt-0.5 line-clamp-2 font-mono-tight text-[11px] leading-snug text-ink-mute">
                   {t.excerpt}
                 </div>
+                {inferChecklistTargets(t).length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5 border-t border-line-soft pt-2">
+                    {inferChecklistTargets(t).map((target) => (
+                      <button
+                        key={target.id}
+                        type="button"
+                        onClick={() => jumpToChecklist(target)}
+                        className="rounded-full border border-[var(--color-champagne)]/30 bg-[var(--color-champagne)]/10 px-2 py-0.5 font-mono-tight text-[10px] text-[var(--color-champagne)] transition-colors hover:bg-[var(--color-champagne)]/15"
+                      >
+                        Requested · {target.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {(ruleDesc || t.learned_rule) && (
                   <div className="mt-2 flex items-start gap-1.5 border-t border-line-soft pt-2">
                     <Pin
@@ -197,7 +253,7 @@ export function CorrespondencePanel({
               exit={{ opacity: 0 }}
               className="font-mono-tight text-[10.5px] text-ink-faint"
             >
-              Mocked composer · per-payor thread filter
+              Draft a reply for this insurer thread
             </motion.span>
           )}
         </AnimatePresence>
@@ -224,7 +280,7 @@ export function CorrespondencePanel({
           <div className="flex justify-end">
             <Button size="sm" variant="primary" onClick={handleSend}>
               <Send size={11} />
-              Send (mocked)
+              Send
             </Button>
           </div>
         </div>

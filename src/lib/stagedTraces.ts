@@ -59,7 +59,7 @@ function buildGenericBuildPlan(c: ClaimLike): AgentStep[] {
     {
       id: `${c.id}_s0`,
       kind: "init",
-      narration: `Initializing Packet agent · ${c.patient_name} · ${c.drg} · ${c.payor_name}. ${
+      narration: `Initializing packet build · ${c.patient_name} · ${c.drg} · ${c.payor_name}. ${
         isDocUpload
           ? "Reading the bundle handed off by the Clinical extractor agent (uploaded paper docs)."
           : "Pulling baseline acceptance from historical threads on this DRG."

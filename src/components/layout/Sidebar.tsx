@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { LayoutDashboard, Building2, RefreshCw, ListChecks, ChevronLeft, ChevronRight, Monitor, Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { resetDb } from "@/lib/db";
 import { useTheme } from "@/store/useTheme";
+import { Modal } from "@/components/ui/Modal";
+import { Button } from "@/components/ui/Button";
 
 type NavItem = { to: string; label: string; Icon: any };
 type NavGroup = { items: NavItem[] };
@@ -20,6 +22,8 @@ const GROUPS: NavGroup[] = [
 ];
 
 const STORAGE_KEY = "tatvacare_sidebar_collapsed";
+const RESET_TOAST_KEY = "tatvacare_reset_toast";
+const WORKLIST_STATE_KEY = "tatvacare_worklist_state_v1";
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState<boolean>(() => {
@@ -30,6 +34,18 @@ export function Sidebar() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0");
   }, [collapsed]);
+
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+  const [resetToastVisible, setResetToastVisible] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.sessionStorage.getItem(RESET_TOAST_KEY) !== "1") return;
+    window.sessionStorage.removeItem(RESET_TOAST_KEY);
+    setResetToastVisible(true);
+    const timer = window.setTimeout(() => setResetToastVisible(false), 2600);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const themeMode = useTheme((s) => s.mode);
   const cycleTheme = useTheme((s) => s.cycle);
@@ -132,20 +148,62 @@ export function Sidebar() {
           {!collapsed && <span>{themeLabel}</span>}
         </button>
         <button
-          onClick={async () => {
-            await resetDb();
-            window.location.reload();
-          }}
-          title={collapsed ? "Reset" : undefined}
+          onClick={() => setConfirmResetOpen(true)}
+          title={collapsed ? "Reset data" : undefined}
           className={cn(
             "group flex w-full items-center rounded-md text-[11.5px] text-ink-faint hover:text-ink-mute",
             collapsed ? "h-9 justify-center" : "gap-2 px-2 py-1.5",
           )}
         >
           <RefreshCw size={collapsed ? 13 : 12} className="shrink-0 transition-transform group-hover:-rotate-180 duration-500" />
-          {!collapsed && <span>Reset</span>}
+          {!collapsed && <span>Reset data</span>}
         </button>
       </div>
+
+      <AnimatePresence>
+        {resetToastVisible && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            className={cn(
+              "absolute z-40 rounded-lg border border-[var(--color-emerald)]/30 bg-[var(--color-panel)] px-3 py-2 shadow-lift",
+              collapsed ? "bottom-16 left-2 right-2" : "bottom-16 left-3 right-3",
+            )}
+          >
+            <div className="font-mono-tight text-[10.5px] text-[var(--color-emerald)]">
+              Demo reset to clean state.
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <Modal open={confirmResetOpen} onClose={() => setConfirmResetOpen(false)} width={460}>
+        <div className="border-b border-line-soft px-5 py-3">
+          <div className="eyebrow">Reset</div>
+          <div className="font-display text-[18px] tracking-tight text-ink">Reset local data</div>
+        </div>
+        <div className="px-5 py-4 text-[13px] leading-relaxed text-ink-soft">
+          Clear local state and reload the seeded showcase patients, payor rules, and correspondence threads.
+        </div>
+        <div className="flex items-center justify-end gap-2 border-t border-line-soft bg-[var(--color-canvas-deep)]/40 px-5 py-3">
+          <Button size="sm" variant="ghost" onClick={() => setConfirmResetOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={async () => {
+              window.localStorage.removeItem(WORKLIST_STATE_KEY);
+              window.sessionStorage.setItem(RESET_TOAST_KEY, "1");
+              await resetDb();
+              window.location.reload();
+            }}
+          >
+            Reset data
+          </Button>
+        </div>
+      </Modal>
     </motion.aside>
   );
 }

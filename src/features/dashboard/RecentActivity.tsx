@@ -4,9 +4,11 @@ import { Panel, PanelHeader } from "@/components/ui/Panel";
 import { Pill } from "@/components/ui/Pill";
 import { query } from "@/lib/db";
 import { fmtCompactIDR } from "@/lib/format";
+import { isShowcasePatient, showcasePatientOrder } from "@/lib/showcase";
 
 type Claim = {
   id: string;
+  patient_id: string;
   patient_name: string;
   payor_name: string;
   payor_color: string;
@@ -36,13 +38,19 @@ export function RecentActivity() {
 
   useEffect(() => {
     query<Claim>(
-      `SELECT c.id, p.name AS patient_name, py.name AS payor_name, py.color AS payor_color,
+      `SELECT c.id, c.patient_id, p.name AS patient_name, py.name AS payor_name, py.color AS payor_color,
               c.drg, c.dx, c.gross_idr, c.status, c.acceptance_score, c.predicted_dtp_days
          FROM claims c
          JOIN patients p ON p.id = c.patient_id
          JOIN payors py ON py.id = c.payor_id
-        ORDER BY c.id DESC`,
-    ).then(setRows);
+         ORDER BY c.id DESC`,
+    ).then((allRows) =>
+      setRows(
+        allRows
+          .filter((row) => isShowcasePatient(row.patient_id))
+          .sort((a, b) => showcasePatientOrder(a.patient_id) - showcasePatientOrder(b.patient_id)),
+      ),
+    );
   }, []);
 
   return (

@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "motion/react";
 import { LayoutGrid, Rows3 } from "lucide-react";
 import { TopBar } from "@/components/layout/TopBar";
@@ -20,13 +20,26 @@ const SILOS: { value: Silo; label: string; sub: string }[] = [
 ];
 
 export function WorklistPage() {
-  const { items, loaded, silo, viewMode, setSilo, setViewMode, setFilters, setSubStage, clearFilters, load } = useWorklist();
+  const {
+    items,
+    loaded,
+    silo,
+    viewMode,
+    setSilo,
+    setViewMode,
+    setFilters,
+    setSubStage,
+    clearFilters,
+    setLastViewedPatientId,
+    load,
+  } = useWorklist();
   // We still subscribe to the upstream "tick" counters so the worklist
   // reloads when claims are submitted or appeals drafted from elsewhere
   // (e.g. inside the patient drilldown stages, in later phases).
   const refreshTick = usePacketBuilder((s) => s.boardRefreshTick);
   const draftTick = useDenials((s) => s.draftTick);
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Initial load + react to upstream changes (claim submit, draft created).
@@ -36,6 +49,8 @@ export function WorklistPage() {
   //   ?silo=…&filter=…&subStage=…
   // Reset state every time the URL changes so chips always land on a clean view.
   useEffect(() => {
+    const hasOverrides = searchParams.has("silo") || searchParams.has("filter") || searchParams.has("subStage");
+    if (!hasOverrides) return;
     clearFilters();
     const s = searchParams.get("silo") as Silo | null;
     if (s === "preauth" || s === "concurrent" || s === "postdischarge") {
@@ -54,13 +69,18 @@ export function WorklistPage() {
   function handleOpen(item: PatientItem) {
     // Drilldown route. The patient_id is pre-computed by the aggregator so
     // this is a single navigation, no DB round-trip on click.
-    navigate(`/patient/${item.patient_id}`);
+    setLastViewedPatientId(item.patient_id);
+    const returnTo = `${location.pathname}${location.search}`;
+    navigate(`/patient/${item.patient_id}`, { state: { returnTo } });
   }
 
   function selectSilo(s: Silo) {
+    clearFilters();
     setSilo(s);
     const next = new URLSearchParams(searchParams);
     next.set("silo", s);
+    next.delete("filter");
+    next.delete("subStage");
     setSearchParams(next, { replace: true });
   }
 
@@ -150,4 +170,3 @@ function ViewBtn({ active, onClick, icon, label }: { active: boolean; onClick: (
     </button>
   );
 }
-

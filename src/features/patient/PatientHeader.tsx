@@ -1,6 +1,5 @@
 import { ArrowLeft, Stethoscope, ShieldCheck } from "lucide-react";
 import { Pill } from "@/components/ui/Pill";
-import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import {
   subStageLabel,
@@ -44,6 +43,11 @@ function subStageForClaimStage(stage: string | null): SubStage | null {
   }
 }
 
+function displaySubStageForClaimStage(stage: string | null, hasActiveDenial: boolean): SubStage | null {
+  if (hasActiveDenial) return "PD_DENIED";
+  return subStageForClaimStage(stage);
+}
+
 function toneForSubStage(sub: SubStage | null): "neutral" | "champagne" | "info" | "warn" | "good" | "bad" {
   if (!sub) return "neutral";
   if (sub.endsWith("BUILDING")) return "champagne";
@@ -68,6 +72,7 @@ type GlSlot = {
   kind: "initial" | "topup" | "final";
   label: string;
   state: GlState;
+  present: boolean;
 };
 
 const GL_KIND_LABEL: Record<GlSlot["kind"], string> = {
@@ -90,8 +95,10 @@ const GL_STATE_LABEL: Record<GlState, string> = {
 // `not_started` so the patient header has consistent shape across patients.
 function buildGlTrio(rows: GlSubmissionRow[]): GlSlot[] {
   const byKind = new Map<GlSlot["kind"], GlState>();
+  const present = new Set<GlSlot["kind"]>();
   for (const r of rows) {
     if (r.kind === "initial" || r.kind === "topup" || r.kind === "final") {
+      present.add(r.kind);
       byKind.set(r.kind, (r.state as GlState) ?? "not_started");
     }
   }
@@ -99,6 +106,7 @@ function buildGlTrio(rows: GlSubmissionRow[]): GlSlot[] {
     kind,
     label: GL_KIND_LABEL[kind],
     state: byKind.get(kind) ?? "not_started",
+    present: present.has(kind),
   }));
 }
 
@@ -108,6 +116,7 @@ export function PatientHeader({
   inpatient,
   hospital,
   glSubmissions,
+  hasActiveDenial = false,
   onBack,
 }: {
   patient: PatientRow;
@@ -115,13 +124,14 @@ export function PatientHeader({
   inpatient: InpatientContextRow | null;
   hospital: HospitalRow | null;
   glSubmissions: GlSubmissionRow[];
+  hasActiveDenial?: boolean;
   onBack: () => void;
 }) {
   const trio = buildGlTrio(glSubmissions);
   const initial = patient.name.trim()[0]?.toUpperCase() ?? "·";
   const drg = claim?.drg ?? inpatient?.drg ?? null;
   const dx = claim?.dx ?? inpatient?.dx ?? null;
-  const sub = subStageForClaimStage(claim?.stage ?? null);
+  const sub = displaySubStageForClaimStage(claim?.stage ?? null, hasActiveDenial);
   const statusLabel = sub ? subStageLabel(sub) : claim?.stage ?? (inpatient ? "In stay" : "—");
   const statusTone = toneForSubStage(sub);
 
@@ -197,15 +207,12 @@ export function PatientHeader({
           </div>
         </div>
 
-        {/* Right cluster: status + GL trio + primary action */}
+        {/* Right cluster: status + GL trio */}
         <div className="flex shrink-0 flex-col items-end gap-2">
           <div className="flex items-center gap-2">
             <Pill tone={statusTone} size="sm" dot className="shrink-0">
               {statusLabel}
             </Pill>
-            <Button variant="primary" size="sm">
-              Submit GL
-            </Button>
           </div>
           <div className="flex items-center gap-1.5">
             {trio.map((slot) => (

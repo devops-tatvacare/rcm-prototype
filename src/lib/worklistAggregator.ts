@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { isShowcasePatient, showcasePatientOrder } from "@/lib/showcase";
 
 export type Silo = "preauth" | "concurrent" | "postdischarge";
 
@@ -62,13 +63,13 @@ const SUB_STAGE_LABEL: Record<SubStage, string> = {
   PA_AGING: "In Review with insurer",
   PA_AT_RISK: "Asked for docs",
   PA_AUTO: "Verdict — Approved",
-  C_IN_STAY: "Verdict — Approved",
+  C_IN_STAY: "In Review with insurer",
   C_WATCH_EXTENSION: "Asked for docs",
   C_DISCHARGE_READY: "Building",
   PD_BUILDING: "Building",
   PD_READY: "Submitted",
   PD_SUBMITTED: "Submitted",
-  PD_AT_RISK: "In Review with insurer",
+  PD_AT_RISK: "Asked for docs",
   PD_DENIED: "Verdict — Approved/Rejected (contesting)",
   PD_PAID: "Verdict — Approved",
   PD_AUTO: "Verdict — Approved",
@@ -82,13 +83,13 @@ const SUB_STAGE_TOOLTIP: Record<SubStage, string> = {
   PA_AGING: "Insurer is adjudicating, no action needed",
   PA_AT_RISK: "Insurer queried, AI gap-filling missing docs",
   PA_AUTO: "Closed, approved, no contest",
-  C_IN_STAY: "Initial GL stands, patient is utilizing",
+  C_IN_STAY: "Insurer-approved stay is active and being monitored",
   C_WATCH_EXTENSION: "Insurer queried on extension, AI gap-filling",
   C_DISCHARGE_READY: "AI is assembling the final claim packet",
   PD_BUILDING: "AI is assembling the post-discharge claim packet",
   PD_READY: "Sent to insurer, awaiting acknowledgment",
   PD_SUBMITTED: "Sent to insurer, awaiting acknowledgment",
-  PD_AT_RISK: "Insurer is adjudicating, no action needed",
+  PD_AT_RISK: "Insurer queried, AI gap-filling missing docs",
   PD_DENIED: "Partial outcome, agent drafting appeal",
   PD_PAID: "Closed, approved, no contest",
   PD_AUTO: "Closed, approved, no contest",
@@ -387,7 +388,7 @@ function buildDenialItem(d: DenialRow, now: Date, docOwners: Set<string>): Patie
 }
 
 export async function loadWorklist(now: Date = new Date()): Promise<PatientItem[]> {
-  const claims = await query<ClaimRow>(
+  const allClaims = await query<ClaimRow>(
     `SELECT c.id, c.patient_id, p.name AS patient_name, h.name AS hospital_name,
             c.payor_id, py.name AS payor_name,
             c.drg, c.dx, c.gross_idr, c.expected_reimb_idr,
@@ -405,7 +406,7 @@ export async function loadWorklist(now: Date = new Date()): Promise<PatientItem[
   const inpatientDocOwners = new Set(docRows.filter((r) => r.owner_kind === "inpatient").map((r) => r.owner_id));
   const claimDocOwners = new Set(docRows.filter((r) => r.owner_kind === "claim").map((r) => r.owner_id));
 
-  const inpatients = await query<InpatientRow>(
+  const allInpatients = await query<InpatientRow>(
     `SELECT i.id, i.patient_id, p.name AS patient_name, h.name AS hospital_name,
             i.payor_id, py.name AS payor_name,
             i.drg, i.dx, i.acuity, i.los_variance_pct,
@@ -417,7 +418,7 @@ export async function loadWorklist(now: Date = new Date()): Promise<PatientItem[
        JOIN hospitals h ON h.id = i.hospital_id`,
   );
 
-  const denials = await query<DenialRow>(
+  const allDenials = await query<DenialRow>(
     `SELECT d.id, d.claim_id, c.patient_id, p.name AS patient_name, h.name AS hospital_name,
             d.payor_id, py.name AS payor_name,
             c.drg, c.dx,
@@ -432,6 +433,9 @@ export async function loadWorklist(now: Date = new Date()): Promise<PatientItem[
   );
 
   // Skip claim rows that have an active denial — denial row represents them in the worklist.
+  const claims = allClaims.filter((c) => isShowcasePatient(c.patient_id));
+  const inpatients = allInpatients.filter((ip) => isShowcasePatient(ip.patient_id));
+  const denials = allDenials.filter((d) => isShowcasePatient(d.patient_id));
   const claimsWithActiveDenial = new Set(denials.map((d) => d.claim_id));
 
   const items: PatientItem[] = [];
@@ -456,7 +460,11 @@ export async function loadWorklist(now: Date = new Date()): Promise<PatientItem[
   for (const ip of inpatients) items.push(buildConcurrentItem(ip, inpatientDocOwners));
   for (const d of denials) items.push(buildDenialItem(d, now, claimDocOwners));
 
-  return items;
+  return items.sort((a, b) => {
+    const patientOrder = showcasePatientOrder(a.patient_id) - showcasePatientOrder(b.patient_id);
+    if (patientOrder !== 0) return patientOrder;
+    return a.rowId.localeCompare(b.rowId);
+  });
 }
 
 // Canonical universal order of columns:

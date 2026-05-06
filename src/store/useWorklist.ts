@@ -14,6 +14,7 @@ type State = {
   // When set, only items in this sub-stage are shown.
   subStage: SubStage | null;
   search: string;
+  lastViewedPatientId: string | null;
   refreshTick: number;
   load: () => Promise<void>;
   setSilo: (s: Silo) => void;
@@ -22,6 +23,7 @@ type State = {
   setFilters: (f: Partial<Record<FilterKey, boolean>>) => void;
   setSubStage: (s: SubStage | null) => void;
   setSearch: (q: string) => void;
+  setLastViewedPatientId: (patientId: string | null) => void;
   clearFilters: () => void;
   bumpRefresh: () => void;
 };
@@ -35,14 +37,61 @@ const EMPTY_FILTERS: Record<FilterKey, boolean> = {
   docGap: false,
 };
 
+const STORAGE_KEY = "tatvacare_worklist_state_v1";
+
+type PersistedState = Pick<
+  State,
+  "silo" | "viewMode" | "filters" | "subStage" | "search" | "lastViewedPatientId"
+>;
+
+function readPersistedState(): Partial<PersistedState> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Partial<PersistedState>;
+    return {
+      silo:
+        parsed.silo === "preauth" || parsed.silo === "concurrent" || parsed.silo === "postdischarge"
+          ? parsed.silo
+          : undefined,
+      viewMode: parsed.viewMode === "kanban" || parsed.viewMode === "table" ? parsed.viewMode : undefined,
+      filters: parsed.filters ? { ...EMPTY_FILTERS, ...parsed.filters } : undefined,
+      subStage: parsed.subStage ?? null,
+      search: typeof parsed.search === "string" ? parsed.search : undefined,
+      lastViewedPatientId: typeof parsed.lastViewedPatientId === "string" ? parsed.lastViewedPatientId : null,
+    };
+  } catch {
+    return {};
+  }
+}
+
+function persistState(state: Pick<State, keyof PersistedState>) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      silo: state.silo,
+      viewMode: state.viewMode,
+      filters: state.filters,
+      subStage: state.subStage,
+      search: state.search,
+      lastViewedPatientId: state.lastViewedPatientId,
+    } satisfies PersistedState),
+  );
+}
+
+const persisted = readPersistedState();
+
 export const useWorklist = create<State>((set, get) => ({
   items: [],
   loaded: false,
-  silo: "preauth",
-  viewMode: "kanban",
-  filters: { ...EMPTY_FILTERS },
-  subStage: null,
-  search: "",
+  silo: persisted.silo ?? "preauth",
+  viewMode: persisted.viewMode ?? "kanban",
+  filters: persisted.filters ?? { ...EMPTY_FILTERS },
+  subStage: persisted.subStage ?? null,
+  search: persisted.search ?? "",
+  lastViewedPatientId: persisted.lastViewedPatientId ?? null,
   refreshTick: 0,
 
   load: async () => {
@@ -50,13 +99,46 @@ export const useWorklist = create<State>((set, get) => ({
     set({ items, loaded: true });
   },
   // Switching silo wipes silo-scoped filters (subStage) but keeps generic ones.
-  setSilo: (s) => set({ silo: s, subStage: null }),
-  setViewMode: (v) => set({ viewMode: v }),
-  toggleFilter: (k) => set((s) => ({ filters: { ...s.filters, [k]: !s.filters[k] } })),
-  setFilters: (f) => set((s) => ({ filters: { ...s.filters, ...f } })),
-  setSubStage: (s) => set({ subStage: s }),
-  setSearch: (q) => set({ search: q }),
-  clearFilters: () => set({ filters: { ...EMPTY_FILTERS }, subStage: null, search: "" }),
+  setSilo: (s) => set((state) => {
+    const next = { ...state, silo: s, subStage: null };
+    persistState(next);
+    return { silo: s, subStage: null };
+  }),
+  setViewMode: (v) => set((state) => {
+    const next = { ...state, viewMode: v };
+    persistState(next);
+    return { viewMode: v };
+  }),
+  toggleFilter: (k) => set((state) => {
+    const next = { ...state, filters: { ...state.filters, [k]: !state.filters[k] } };
+    persistState(next);
+    return { filters: next.filters };
+  }),
+  setFilters: (f) => set((state) => {
+    const next = { ...state, filters: { ...state.filters, ...f } };
+    persistState(next);
+    return { filters: next.filters };
+  }),
+  setSubStage: (s) => set((state) => {
+    const next = { ...state, subStage: s };
+    persistState(next);
+    return { subStage: s };
+  }),
+  setSearch: (q) => set((state) => {
+    const next = { ...state, search: q };
+    persistState(next);
+    return { search: q };
+  }),
+  setLastViewedPatientId: (patientId) => set((state) => {
+    const next = { ...state, lastViewedPatientId: patientId };
+    persistState(next);
+    return { lastViewedPatientId: patientId };
+  }),
+  clearFilters: () => set((state) => {
+    const next = { ...state, filters: { ...EMPTY_FILTERS }, subStage: null, search: "" };
+    persistState(next);
+    return { filters: next.filters, subStage: null, search: "" };
+  }),
   bumpRefresh: () => {
     set({ refreshTick: get().refreshTick + 1 });
     get().load();

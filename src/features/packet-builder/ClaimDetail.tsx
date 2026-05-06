@@ -230,9 +230,9 @@ function LiveAcceptanceCard() {
               {running ? (
                 <Button size="md" variant="soft" className="flex-1" onClick={pause}><Pause size={13} /> Pause</Button>
               ) : status === "paused" ? (
-                <Button size="md" variant="primary" className="flex-1" onClick={resume}><Play size={13} /> Resume agent</Button>
+                <Button size="md" variant="primary" className="flex-1" onClick={resume}><Play size={13} /> Resume build</Button>
               ) : (
-                <Button size="md" variant="primary" className="flex-1" onClick={start}><Play size={13} /> Run agent</Button>
+                <Button size="md" variant="primary" className="flex-1" onClick={start}><Play size={13} /> Start build</Button>
               )}
               <Button size="md" variant="ghost" onClick={reset}><RotateCcw size={12} /></Button>
             </motion.div>
@@ -529,11 +529,11 @@ function AtRiskPanel() {
                   {/* Agent path */}
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center justify-between font-mono-tight text-[10px] uppercase tracking-[0.14em]">
-                      <span className="text-ink-faint">Path A · agent</span>
+                      <span className="text-ink-faint">Path A · workflow</span>
                       <span className="text-ink-soft">composes from source data</span>
                     </div>
                     <Button size="md" variant="primary" className="w-full" onClick={runRemediation}>
-                      <Zap size={13} /> Run agent remediation
+                      <Zap size={13} /> Run remediation
                     </Button>
                   </div>
 

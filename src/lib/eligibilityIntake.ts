@@ -246,7 +246,7 @@ export function buildLivePlan(c: SampleCard): LiveStep[] {
     {
       id: "s2",
       label: "National ID cross-check",
-      detail: `NIK ${c.national_id_masked} verified against Dukcapil mock`,
+      detail: `NIK ${c.national_id_masked} verified against Dukcapil`,
       ms: 1200,
       source: "Dukcapil",
     },

@@ -1,42 +1,53 @@
 import { useMemo } from "react";
 import { useWorklist, applyFilters } from "@/store/useWorklist";
-import { stageOrderForSilo, subStageLabel, subStageTooltip, type PatientItem, type SubStage } from "@/lib/worklistAggregator";
+import { subStageLabel, type PatientItem } from "@/lib/worklistAggregator";
 import { PatientCard } from "./PatientCard";
 import { Pill } from "@/components/ui/Pill";
 
-// Tone mapped to the universal vocabulary semantics:
-//   Building → champagne (in-progress)
-//   Submitted → info (sent, waiting)
-//   In Review with insurer → info (insurer working, not on us)
-//   Asked for docs → warn (action needed)
-//   Verdict — Approved → good
-//   Verdict — Approved/Rejected (contesting) → bad
-//   Verdict — Rejected → bad (no current SubStage feeds this)
-function stageTone(sub: SubStage): "neutral" | "info" | "warn" | "bad" | "champagne" | "good" {
-  switch (sub) {
-    case "PA_BUILDING":
-    case "PD_BUILDING":
-    case "C_DISCHARGE_READY":
-      return "champagne";
-    case "PA_SUBMITTED":
-    case "PD_SUBMITTED":
-    case "PD_READY":
-    case "PA_AGING":
-    case "PD_AT_RISK":
-      return "info";
-    case "PA_AT_RISK":
-    case "C_WATCH_EXTENSION":
-      return "warn";
-    case "PA_AUTO":
-    case "PD_PAID":
-    case "PD_AUTO":
-    case "C_IN_STAY":
-      return "good";
-    case "PD_DENIED":
-      return "bad";
-    default:
-      return "neutral";
-  }
+const KANBAN_COLUMNS = [
+  {
+    label: "Building",
+    tone: "champagne" as const,
+    tooltip: "AI is assembling the packet",
+  },
+  {
+    label: "Submitted",
+    tone: "info" as const,
+    tooltip: "Sent to insurer, awaiting acknowledgment",
+  },
+  {
+    label: "In Review with insurer",
+    tone: "info" as const,
+    tooltip: "Insurer is adjudicating",
+  },
+  {
+    label: "Asked for docs",
+    tone: "warn" as const,
+    tooltip: "Insurer queried, AI is gap-filling",
+  },
+  {
+    label: "Verdict — Approved",
+    tone: "good" as const,
+    tooltip: "Closed, no contest",
+  },
+  {
+    label: "Verdict — Approved/Rejected (contesting)",
+    tone: "bad" as const,
+    tooltip: "Partial outcome, agent drafting appeal",
+  },
+  {
+    label: "Verdict — Rejected",
+    tone: "bad" as const,
+    tooltip: "Closed, no contest",
+  },
+] satisfies ReadonlyArray<{
+  label: string;
+  tone: "neutral" | "info" | "warn" | "bad" | "champagne" | "good";
+  tooltip: string;
+}>;
+
+function columnLabelFor(item: PatientItem): string {
+  return subStageLabel(item.subStage);
 }
 
 export function WorklistKanban({ onOpen }: { onOpen: (i: PatientItem) => void }) {
@@ -45,22 +56,21 @@ export function WorklistKanban({ onOpen }: { onOpen: (i: PatientItem) => void })
     () => applyFilters(items, { silo, filters, search, subStage }),
     [items, silo, filters, search, subStage],
   );
-  const order = stageOrderForSilo(silo);
   const grouped = useMemo(() => {
     const m: Record<string, PatientItem[]> = {};
-    for (const sub of order) m[sub] = [];
-    for (const it of filtered) (m[it.subStage] ??= []).push(it);
+    for (const col of KANBAN_COLUMNS) m[col.label] = [];
+    for (const it of filtered) (m[columnLabelFor(it)] ??= []).push(it);
     return m;
-  }, [filtered, order]);
+  }, [filtered]);
 
   return (
-    <div className="grid h-full min-h-0 gap-3 overflow-x-auto px-4 pb-4" style={{ gridTemplateColumns: `repeat(${order.length}, minmax(260px, 1fr))` }}>
-      {order.map((sub) => {
-        const list = grouped[sub] ?? [];
+    <div className="grid h-full min-h-0 gap-3 overflow-x-auto px-4 pb-4" style={{ gridTemplateColumns: `repeat(${KANBAN_COLUMNS.length}, minmax(260px, 1fr))` }}>
+      {KANBAN_COLUMNS.map((column) => {
+        const list = grouped[column.label] ?? [];
         return (
-          <div key={sub} className="flex h-full min-h-0 flex-col rounded-lg border border-line-soft bg-[var(--color-canvas-deep)]/40">
-            <div className="flex items-center justify-between border-b border-line-soft px-3 py-2" title={subStageTooltip(sub)}>
-              <Pill tone={stageTone(sub)} size="xs">{subStageLabel(sub)}</Pill>
+          <div key={column.label} className="flex h-full min-h-0 flex-col rounded-lg border border-line-soft bg-[var(--color-canvas-deep)]/40">
+            <div className="flex items-center justify-between border-b border-line-soft px-3 py-2" title={column.tooltip}>
+              <Pill tone={column.tone} size="xs">{column.label}</Pill>
               <span className="font-mono-tight text-[10px] text-ink-faint">{list.length}</span>
             </div>
             <div className="flex flex-1 min-h-0 flex-col gap-2 overflow-y-auto p-2">

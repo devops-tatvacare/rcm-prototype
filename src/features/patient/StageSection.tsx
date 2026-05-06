@@ -7,7 +7,6 @@ import {
   Clock,
   FileText,
   HelpCircle,
-  Sparkles,
   Wand2,
 } from "lucide-react";
 import { Pill } from "@/components/ui/Pill";
@@ -73,7 +72,7 @@ export function StageSection({
   const stageMeta = STAGES.find((s) => s.key === content.stage)!;
   const stageNumber = STAGES.findIndex((s) => s.key === content.stage) + 1;
   const pill = STAGE_PILL[status];
-  const showCorrespondence = CORRESPONDENCE_STAGES.has(content.stage) && payorId;
+  const showCorrespondence = status !== "future" && CORRESPONDENCE_STAGES.has(content.stage) && payorId;
 
   return (
     <section
@@ -103,19 +102,25 @@ export function StageSection({
 
       <div className="flex flex-col gap-3 px-4 py-3">
         {/* Narrative */}
-        <p className="font-display text-[13.5px] leading-relaxed tracking-tight text-ink-soft">
-          {content.narrative}
-        </p>
+        {status === "future" ? (
+          <p className="font-display text-[13.5px] leading-relaxed tracking-tight text-ink-mute">
+            This stage has not started yet. Narrative, documents, and insurer activity appear here once the patient reaches it.
+          </p>
+        ) : (
+          <p className="font-display text-[13.5px] leading-relaxed tracking-tight text-ink-soft">
+            {content.narrative}
+          </p>
+        )}
 
         {/* Complication banner — only on Surgery when content flag is on */}
-        {content.hasComplicationBanner === true && content.stage === "surgery" && (
+        {status !== "future" && content.hasComplicationBanner === true && content.stage === "surgery" && (
           <ComplicationBanner />
         )}
 
-        {/* Agent actions */}
-        {content.agentActions.length > 0 && (
+        {/* Workflow activity */}
+        {status !== "future" && content.agentActions.length > 0 && (
           <div className="flex flex-col gap-1.5">
-            <span className="eyebrow">Agent actions</span>
+            <span className="eyebrow">Workflow activity</span>
             <ul className="flex flex-col gap-1">
               {content.agentActions.map((action, idx) => (
                 <li
@@ -123,9 +128,9 @@ export function StageSection({
                   className="flex items-start gap-2 font-mono-tight text-[11.5px] leading-snug text-ink-soft"
                 >
                   {idx === 0 ? (
-                    <Sparkles
+                    <CircleCheck
                       size={11}
-                      className="mt-[3px] shrink-0 text-[var(--color-champagne)]"
+                      className="mt-[3px] shrink-0 text-[var(--color-emerald)]"
                     />
                   ) : (
                     <span className="mt-[7px] block h-1 w-1 shrink-0 rounded-full bg-[var(--color-line-strong)]" />
@@ -138,7 +143,7 @@ export function StageSection({
         )}
 
         {/* Documents */}
-        {content.documents.length > 0 && (
+        {status !== "future" && content.documents.length > 0 && (
           <div className="flex flex-col gap-1.5">
             <span className="eyebrow">Documents collected at this stage</span>
             <div className="flex flex-wrap gap-1.5">
@@ -234,7 +239,7 @@ function DocumentChip({ doc }: { doc: StageDoc }) {
 function ComplicationBanner() {
   const [confirm, setConfirm] = useState<string | null>(null);
   function handleDraft() {
-    setConfirm("GL top-up draft created · P3.3 wires this to the right rail");
+    setConfirm("GL top-up amendment created.");
     setTimeout(() => setConfirm(null), 2800);
   }
   return (

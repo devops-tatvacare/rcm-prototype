@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -27,7 +28,7 @@ export function Modal({
     }
   }, [open, onClose]);
 
-  return (
+  const content = (
     <AnimatePresence>
       {open && (
         <>
@@ -68,4 +69,7 @@ export function Modal({
       )}
     </AnimatePresence>
   );
+
+  if (typeof document === "undefined") return content;
+  return createPortal(content, document.body);
 }

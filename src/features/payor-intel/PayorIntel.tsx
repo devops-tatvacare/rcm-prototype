@@ -9,6 +9,7 @@ import { Sparkline } from "@/components/ui/Sparkline";
 import { query } from "@/lib/db";
 import { fmtCompactIDR } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { isShowcasePatient } from "@/lib/showcase";
 import { EmailInbox } from "./EmailInbox";
 import { PayorRulesTable } from "./PayorRulesTable";
 
@@ -38,7 +39,9 @@ export function PayorIntel() {
 
   useEffect(() => {
     query<Payor>("SELECT * FROM payors ORDER BY monthly_volume_idr DESC").then(setPayors);
-    query<{ c: number }>("SELECT COUNT(*) AS c FROM email_threads").then((rows) => setInboxCount(rows[0]?.c ?? 0));
+    query<{ patient_id: string | null }>("SELECT patient_id FROM email_threads").then((rows) =>
+      setInboxCount(rows.filter((row) => isShowcasePatient(row.patient_id)).length),
+    );
     query<{ c: number }>("SELECT COUNT(*) AS c FROM payor_rules").then((rows) => setRulesCount(rows[0]?.c ?? 0));
   }, []);
 
