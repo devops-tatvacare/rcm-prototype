@@ -52,6 +52,12 @@ export type HospitalRow = {
   city: string;
 };
 
+export type GlSubmissionRow = {
+  id: string;
+  kind: "initial" | "topup" | "final";
+  state: "not_started" | "drafting" | "submitted" | "approved" | "rejected" | "partial";
+};
+
 export function PatientPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -59,13 +65,14 @@ export function PatientPage() {
   const [claim, setClaim] = useState<ClaimContextRow | null>(null);
   const [inpatient, setInpatient] = useState<InpatientContextRow | null>(null);
   const [hospital, setHospital] = useState<HospitalRow | null>(null);
+  const [glSubmissions, setGlSubmissions] = useState<GlSubmissionRow[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
     (async () => {
-      const [pRows, cRows, ipRows] = await Promise.all([
+      const [pRows, cRows, ipRows, glRows] = await Promise.all([
         query<PatientRow>(
           `SELECT p.*, py.name AS payor_name, py.color AS payor_color, py.kind AS payor_kind
              FROM patients p
@@ -88,6 +95,18 @@ export function PatientPage() {
             LIMIT 1`,
           [id],
         ),
+        query<GlSubmissionRow>(
+          `SELECT id, kind, state
+             FROM gl_submissions
+            WHERE patient_id = ?
+            ORDER BY CASE kind
+                       WHEN 'initial' THEN 1
+                       WHEN 'topup'   THEN 2
+                       WHEN 'final'   THEN 3
+                       ELSE 4
+                     END`,
+          [id],
+        ),
       ]);
       if (cancelled) return;
       const p = pRows[0] ?? null;
@@ -96,6 +115,7 @@ export function PatientPage() {
       setPatient(p);
       setClaim(c);
       setInpatient(ip);
+      setGlSubmissions(glRows ?? []);
       const hospitalId = c?.hospital_id ?? ip?.hospital_id ?? null;
       if (hospitalId) {
         const hRows = await query<HospitalRow>(
@@ -166,6 +186,7 @@ export function PatientPage() {
             claim={claim}
             inpatient={inpatient}
             hospital={hospital}
+            glSubmissions={glSubmissions}
             onBack={() => navigate("/worklist")}
           />
         </div>
