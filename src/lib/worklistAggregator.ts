@@ -16,6 +16,8 @@ export type PatientItem = {
   rowId: string;
   source: "claim" | "inpatient" | "denial";
   data_origin: "EMR" | "DOC_UPLOAD";
+  // Always populated. Used by the worklist row click → /patient/:id navigation.
+  patient_id: string;
   patient_name: string;
   hospital_name: string;
   hospital_initial: string;
@@ -154,6 +156,7 @@ function awaitingHumanFor(sub: SubStage): boolean {
 
 type ClaimRow = {
   id: string;
+  patient_id: string;
   patient_name: string;
   hospital_name: string;
   payor_id: string;
@@ -177,6 +180,7 @@ function originOf(s: string | null | undefined): DataOrigin {
 
 type InpatientRow = {
   id: string;
+  patient_id: string;
   patient_name: string;
   hospital_name: string;
   payor_id: string;
@@ -195,6 +199,7 @@ type InpatientRow = {
 type DenialRow = {
   id: string;
   claim_id: string;
+  patient_id: string;
   patient_name: string;
   hospital_name: string;
   payor_id: string;
@@ -234,6 +239,7 @@ function buildPreAuthItem(c: ClaimRow, now: Date, _docOwners: Set<string>): Pati
   return {
     rowId: `claim:${c.id}`,
     source: "claim",
+    patient_id: c.patient_id,
     patient_name: c.patient_name,
     hospital_name: c.hospital_name,
     hospital_initial: initial(c.hospital_name),
@@ -273,6 +279,7 @@ function buildPostDischargeItem(c: ClaimRow): PatientItem {
   return {
     rowId: `claim:${c.id}`,
     source: "claim",
+    patient_id: c.patient_id,
     patient_name: c.patient_name,
     hospital_name: c.hospital_name,
     hospital_initial: initial(c.hospital_name),
@@ -316,6 +323,7 @@ function buildConcurrentItem(ip: InpatientRow, docOwners: Set<string>): PatientI
   return {
     rowId: `ip:${ip.id}`,
     source: "inpatient",
+    patient_id: ip.patient_id,
     patient_name: ip.patient_name,
     hospital_name: ip.hospital_name,
     hospital_initial: initial(ip.hospital_name),
@@ -348,6 +356,7 @@ function buildDenialItem(d: DenialRow, now: Date, docOwners: Set<string>): Patie
   return {
     rowId: `denial:${d.id}`,
     source: "denial",
+    patient_id: d.patient_id,
     patient_name: d.patient_name,
     hospital_name: d.hospital_name,
     hospital_initial: initial(d.hospital_name),
@@ -379,7 +388,7 @@ function buildDenialItem(d: DenialRow, now: Date, docOwners: Set<string>): Patie
 
 export async function loadWorklist(now: Date = new Date()): Promise<PatientItem[]> {
   const claims = await query<ClaimRow>(
-    `SELECT c.id, p.name AS patient_name, h.name AS hospital_name,
+    `SELECT c.id, c.patient_id, p.name AS patient_name, h.name AS hospital_name,
             c.payor_id, py.name AS payor_name,
             c.drg, c.dx, c.gross_idr, c.expected_reimb_idr,
             c.stage, c.days_in_stage, c.risk_flag, c.agent_step, c.submitted_at, c.source
@@ -397,7 +406,7 @@ export async function loadWorklist(now: Date = new Date()): Promise<PatientItem[
   const claimDocOwners = new Set(docRows.filter((r) => r.owner_kind === "claim").map((r) => r.owner_id));
 
   const inpatients = await query<InpatientRow>(
-    `SELECT i.id, p.name AS patient_name, h.name AS hospital_name,
+    `SELECT i.id, i.patient_id, p.name AS patient_name, h.name AS hospital_name,
             i.payor_id, py.name AS payor_name,
             i.drg, i.dx, i.acuity, i.los_variance_pct,
             i.authorized_days, i.day_of_stay,
@@ -409,7 +418,7 @@ export async function loadWorklist(now: Date = new Date()): Promise<PatientItem[
   );
 
   const denials = await query<DenialRow>(
-    `SELECT d.id, d.claim_id, p.name AS patient_name, h.name AS hospital_name,
+    `SELECT d.id, d.claim_id, c.patient_id, p.name AS patient_name, h.name AS hospital_name,
             d.payor_id, py.name AS payor_name,
             c.drg, c.dx,
             d.category, d.reason_text, d.denied_amount_idr,

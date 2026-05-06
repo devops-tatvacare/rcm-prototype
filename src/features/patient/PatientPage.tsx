@@ -7,6 +7,7 @@ import { query } from "@/lib/db";
 import { PatientHeader } from "./PatientHeader";
 import { JourneyTimeline, deriveActiveStage, type StageKey } from "./JourneyTimeline";
 import { StagesPanel } from "./StagesPanel";
+import { PacketRail } from "./PacketRail";
 
 export type PatientRow = {
   id: string;
@@ -189,12 +190,12 @@ export function PatientPage() {
             />
           </section>
 
-          {/* RIGHT RAIL — placeholder for P3.3 */}
+          {/* RIGHT RAIL — packet readiness */}
           <aside className="sticky top-3 self-start">
-            <PlaceholderPanel
-              eyebrow="Right rail"
-              title="Packet readiness — P3.3"
-              hint="Per-document readiness, insurer-required checklist, and primary-action surface arrive in P3.3."
+            <PacketRail
+              patientId={patient.id}
+              payorId={patient.payor_id ?? null}
+              activeStage={activeStage}
             />
           </aside>
         </div>
@@ -203,27 +204,3 @@ export function PatientPage() {
   );
 }
 
-function PlaceholderPanel({
-  eyebrow,
-  title,
-  hint,
-  tall = false,
-}: {
-  eyebrow: string;
-  title: string;
-  hint: string;
-  tall?: boolean;
-}) {
-  return (
-    <div
-      className={
-        "flex flex-col gap-2 rounded-xl border border-dashed border-[var(--color-line-soft)] bg-[var(--color-canvas-deep)]/40 px-4 py-4 " +
-        (tall ? "min-h-[420px]" : "min-h-[180px]")
-      }
-    >
-      <span className="eyebrow">{eyebrow}</span>
-      <span className="font-display text-[15px] tracking-tight text-ink-soft">{title}</span>
-      <span className="font-mono-tight text-[11px] leading-relaxed text-ink-faint">{hint}</span>
-    </div>
-  );
-}
