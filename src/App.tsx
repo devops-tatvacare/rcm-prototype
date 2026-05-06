@@ -4,8 +4,6 @@ import { motion, AnimatePresence } from "motion/react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Dashboard } from "@/features/dashboard/Dashboard";
 import { PayorIntel } from "@/features/payor-intel/PayorIntel";
-import { EligibilityPage } from "@/features/eligibility/EligibilityPage";
-import { ClearancesPage } from "@/features/clearances/ClearancesPage";
 import { EvidenceDrawer } from "@/features/payor-intel/EvidenceDrawer";
 import { WorklistPage } from "@/features/worklist/WorklistPage";
 import { getDb } from "@/lib/db";
@@ -50,13 +48,6 @@ export default function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/worklist" element={<WorklistPage />} />
               <Route path="/payors" element={<PayorIntel />} />
-              {/* Hidden but reachable */}
-              <Route path="/eligibility" element={<EligibilityPage />} />
-              <Route path="/clearances" element={<ClearancesPage />} />
-              {/* Old per-stage pages → redirect into Worklist with silo preset */}
-              <Route path="/case-review" element={<Navigate to="/worklist?silo=concurrent" replace />} />
-              <Route path="/builder" element={<Navigate to="/worklist?silo=postdischarge" replace />} />
-              <Route path="/denials" element={<Navigate to="/worklist?silo=postdischarge&filter=awaitingHuman" replace />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </motion.div>

@@ -7,24 +7,13 @@ import { resetDb } from "@/lib/db";
 import { useTheme } from "@/store/useTheme";
 
 type NavItem = { to: string; label: string; Icon: any };
-type NavGroup = { eyebrow: string; items: NavItem[] };
+type NavGroup = { items: NavItem[] };
 
 const GROUPS: NavGroup[] = [
   {
-    eyebrow: "Overview",
     items: [
       { to: "/", label: "Command Center", Icon: LayoutDashboard },
-    ],
-  },
-  {
-    eyebrow: "My day",
-    items: [
       { to: "/worklist", label: "Worklist", Icon: ListChecks },
-    ],
-  },
-  {
-    eyebrow: "Reference",
-    items: [
       { to: "/payors", label: "Payor Intelligence", Icon: Building2 },
     ],
   },
@@ -80,14 +69,8 @@ export function Sidebar() {
 
       {/* Nav — grouped by RCM cycle stage */}
       <nav className={cn("flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto", collapsed ? "p-2" : "p-3")}>
-        {GROUPS.map((group) => (
-          <div key={group.eyebrow} className="flex flex-col gap-0.5">
-            {!collapsed && (
-              <div className="px-2 pt-2 pb-1">
-                <span className="eyebrow truncate">{group.eyebrow}</span>
-              </div>
-            )}
-            {collapsed && <div className="my-1 h-px bg-line-soft/60" />}
+        {GROUPS.map((group, groupIdx) => (
+          <div key={groupIdx} className="flex flex-col gap-0.5">
             {group.items.map(({ to, label, Icon }) => (
               <NavLink
                 key={to}
