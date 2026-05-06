@@ -6,6 +6,7 @@ import { Panel } from "@/components/ui/Panel";
 import { query } from "@/lib/db";
 import { PatientHeader } from "./PatientHeader";
 import { JourneyTimeline, deriveActiveStage, type StageKey } from "./JourneyTimeline";
+import { StagesPanel } from "./StagesPanel";
 
 export type PatientRow = {
   id: string;
@@ -171,16 +172,20 @@ export function PatientPage() {
         <div className="grid min-h-0 flex-1 grid-cols-[260px_1fr_320px] gap-3 p-4 pt-3">
           {/* LEFT RAIL */}
           <aside className="sticky top-3 self-start">
-            <JourneyTimeline activeStage={activeStage} />
+            <JourneyTimeline
+              activeStage={activeStage}
+              onSelectStage={(key) => {
+                const el = document.getElementById(`stage-${key}`);
+                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+            />
           </aside>
 
-          {/* MAIN — placeholder for P3.2 */}
+          {/* MAIN — stage sections */}
           <section className="min-w-0 overflow-auto">
-            <PlaceholderPanel
-              eyebrow="Main"
-              title="Stage sections — P3.2"
-              hint="Consultation → Discharge sections, packet rows, and insurer correspondence land here in the next phase."
-              tall
+            <StagesPanel
+              activeStage={activeStage}
+              payorId={patient.payor_id ?? null}
             />
           </section>
 
