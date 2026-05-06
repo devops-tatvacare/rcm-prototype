@@ -66,13 +66,6 @@ const GL_TRIO: GlSlot[] = [
   { label: "Final claim", state: "not_started" },
 ];
 
-const GL_STATE_TONE: Record<GlSlot["state"], "neutral" | "champagne" | "info" | "good"> = {
-  submitted: "info",
-  not_started: "neutral",
-  in_progress: "champagne",
-  approved: "good",
-};
-
 const GL_STATE_LABEL: Record<GlSlot["state"], string> = {
   submitted: "Submitted",
   not_started: "Not started",
